@@ -14,6 +14,7 @@ import type {
   UploadResponse,
 } from '@/types/admin'
 import type { ArticleDetail, ArticleStatus } from '@/types/content'
+import type { AdminMusicPlaylist, MusicPlaylistInput, MusicPlaylistResponse } from '@/types/music'
 
 export const authApi = {
   getSession(): Promise<SessionResponse> {
@@ -134,5 +135,29 @@ export const adminApi = {
       method: 'POST',
       body: JSON.stringify({ password, code }),
     })
+  },
+  listMusicPlaylists(): Promise<{ items: AdminMusicPlaylist[] }> {
+    return request<{ items: AdminMusicPlaylist[] }>('/api/admin/music/playlists')
+  },
+  createMusicPlaylist(payload: MusicPlaylistInput): Promise<{ playlist: AdminMusicPlaylist }> {
+    return request<{ playlist: AdminMusicPlaylist }>('/api/admin/music/playlists', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    })
+  },
+  updateMusicPlaylist(
+    id: number,
+    payload: MusicPlaylistInput,
+  ): Promise<{ playlist: AdminMusicPlaylist }> {
+    return request<{ playlist: AdminMusicPlaylist }>(`/api/admin/music/playlists/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    })
+  },
+  deleteMusicPlaylist(id: number): Promise<{ ok: true }> {
+    return request<{ ok: true }>(`/api/admin/music/playlists/${id}`, { method: 'DELETE' })
+  },
+  previewMusicPlaylist(id: number): Promise<MusicPlaylistResponse> {
+    return request<MusicPlaylistResponse>(`/api/admin/music/playlists/${id}/preview`)
   },
 }

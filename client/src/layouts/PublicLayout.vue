@@ -1,12 +1,17 @@
 <script setup lang="ts">
-import { onMounted } from 'vue'
+import { computed, onMounted } from 'vue'
 import { RouterView } from 'vue-router'
 
+import MusicPlayer from '@/components/MusicPlayer.vue'
 import SiteFooter from '@/components/SiteFooter.vue'
 import SiteHeader from '@/components/SiteHeader.vue'
+import { usePlayerStore } from '@/stores/player'
 import { useSiteStore } from '@/stores/site'
 
 const siteStore = useSiteStore()
+const playerStore = usePlayerStore()
+
+const hasPlayer = computed(() => playerStore.hasPlaylists)
 
 onMounted(() => {
   void siteStore.load()
@@ -15,7 +20,7 @@ onMounted(() => {
 
 <template>
   <a class="skip-link" href="#main-content">跳到主要内容</a>
-  <div class="public-layout">
+  <div class="public-layout" :class="{ 'has-player': hasPlayer }">
     <div class="public-layout__ambient" aria-hidden="true">
       <span class="public-layout__glow public-layout__glow--one" />
       <span class="public-layout__glow public-layout__glow--two" />
@@ -29,6 +34,7 @@ onMounted(() => {
       </RouterView>
     </main>
     <SiteFooter />
+    <MusicPlayer />
   </div>
 </template>
 
@@ -38,6 +44,10 @@ onMounted(() => {
   display: flex;
   min-height: 100vh;
   flex-direction: column;
+}
+
+.public-layout.has-player {
+  padding-bottom: 82px;
 }
 
 .public-layout__ambient {
@@ -72,5 +82,11 @@ onMounted(() => {
 .public-main {
   position: relative;
   flex: 1;
+}
+
+@media (max-width: 680px) {
+  .public-layout.has-player {
+    padding-bottom: 102px;
+  }
 }
 </style>

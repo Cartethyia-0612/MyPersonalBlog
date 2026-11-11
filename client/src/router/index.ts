@@ -56,6 +56,12 @@ const router = createRouter({
           meta: { title: '友链管理', adminTitle: '友链管理' },
         },
         {
+          path: 'music',
+          name: 'admin-music',
+          component: () => import('@/views/admin/AdminMusicView.vue'),
+          meta: { title: '音乐管理', adminTitle: '音乐管理' },
+        },
+        {
           path: 'settings',
           name: 'admin-settings',
           component: () => import('@/views/admin/AdminSettingsView.vue'),

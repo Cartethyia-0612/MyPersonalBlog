@@ -5,6 +5,7 @@ import { AppError } from '../lib/errors'
 import { parseNumber } from '../lib/http'
 import { listPublishedArticles, getPublishedArticleBySlug } from '../services/articles'
 import { listVisibleFriends } from '../services/friends'
+import { fetchPlaylistTracks, getVisiblePlaylist, listVisiblePlaylists } from '../services/music'
 import { getAboutContent, getFooterSettings, getSiteSettings } from '../services/settings'
 
 export function createPublicRouter(db: Db): Router {
@@ -47,6 +48,21 @@ export function createPublicRouter(db: Db): Router {
 
   router.get('/about', (_req, res) => {
     res.json({ contentMd: getAboutContent(db) })
+  })
+
+  router.get('/music/playlists', (_req, res) => {
+    res.json({ items: listVisiblePlaylists(db) })
+  })
+
+  router.get('/music/playlists/:id', async (req, res) => {
+    const id = Number(req.params.id)
+    if (!Number.isInteger(id) || id < 1) {
+      throw new AppError(404, 'PLAYLIST_NOT_FOUND', '歌单不存在')
+    }
+    const playlist = getVisiblePlaylist(db, id)
+    if (!playlist) throw new AppError(404, 'PLAYLIST_NOT_FOUND', '歌单不存在')
+    const result = await fetchPlaylistTracks(db, playlist)
+    res.json(result)
   })
 
   return router

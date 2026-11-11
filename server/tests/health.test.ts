@@ -27,6 +27,15 @@ describe('health API', () => {
     expect(response.body.error.code).toBe('NOT_FOUND')
   })
 
+  it('allows HTTPS external images and media in the CSP', async () => {
+    context = createTestContext()
+    const response = await request(context.app).get('/api/health')
+    const csp = response.headers['content-security-policy'] ?? ''
+    expect(csp).toContain("img-src 'self' data: https:")
+    expect(csp).toContain("media-src 'self' https:")
+    expect(csp).toContain("default-src 'self'")
+  })
+
   it('requires authentication for admin routes', async () => {
     context = createTestContext()
     const response = await request(context.app).get('/api/admin/security')

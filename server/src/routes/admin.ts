@@ -11,6 +11,7 @@ import { getArticleStats } from '../services/articles'
 import { getFriendStats } from '../services/friends'
 import { createAdminArticlesRouter } from './adminArticles'
 import { createAdminFriendsRouter } from './adminFriends'
+import { createAdminMusicRouter } from './adminMusic'
 import { createAdminSettingsRouter } from './adminSettings'
 import { createAdminUploadsRouter } from './adminUploads'
 import {
@@ -94,6 +95,7 @@ export function createAdminRouter(db: Db, config: AppConfig): Router {
 
   router.use('/articles', createAdminArticlesRouter(db))
   router.use('/friends', createAdminFriendsRouter(db))
+  router.use('/music', createAdminMusicRouter(db))
   router.use(createAdminSettingsRouter(db))
   router.use('/uploads', createAdminUploadsRouter(config))
 

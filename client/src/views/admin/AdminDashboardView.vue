@@ -42,7 +42,7 @@ const stats = computed(() => {
       value: overview.value.playlists.total,
       meta: 'MUSIC_NODES',
       icon: 'music',
-      to: '/admin/settings',
+      to: '/admin/music',
     },
   ]
 })

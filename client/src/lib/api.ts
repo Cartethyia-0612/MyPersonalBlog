@@ -1,5 +1,6 @@
 import { request, queryString } from '@/lib/http'
 import type { ArticleDetail, ArticleSummary, Friend, Paginated, SitePayload } from '@/types/content'
+import type { MusicPlaylistResponse, MusicPlaylistSummary } from '@/types/music'
 
 export { ApiError } from '@/lib/http'
 
@@ -20,5 +21,11 @@ export const publicApi = {
   },
   getAbout(): Promise<{ contentMd: string }> {
     return request<{ contentMd: string }>('/api/about')
+  },
+  getMusicPlaylists(): Promise<{ items: MusicPlaylistSummary[] }> {
+    return request<{ items: MusicPlaylistSummary[] }>('/api/music/playlists')
+  },
+  getMusicPlaylist(id: number): Promise<MusicPlaylistResponse> {
+    return request<MusicPlaylistResponse>(`/api/music/playlists/${id}`)
   },
 }

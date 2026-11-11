@@ -289,24 +289,16 @@ useSeo(() => ({
           <section class="admin-card">
             <div class="admin-card__head">
               <div>
-                <h2 class="admin-card__title">扩展服务</h2>
-                <p class="admin-card__hint">音乐播放器使用的 Meting API 地址</p>
+                <h2 class="admin-card__title">音乐与歌单</h2>
+                <p class="admin-card__hint">Meting API 地址与前台固定歌单</p>
               </div>
               <span class="mono settings-code">MUSIC</span>
             </div>
-            <div class="admin-form settings-body">
-              <label class="admin-label">
-                Meting API Base
-                <input
-                  v-model="form.music.apiBase"
-                  class="input"
-                  type="url"
-                  placeholder="https://api.qijieya.cn/meting/"
-                />
-                <span class="hint">
-                  保存时会自动补齐末尾斜杠。歌单曲目由服务端代理请求，不会把第三方接口直接暴露给前台。
-                </span>
-              </label>
+            <div class="settings-body">
+              <p class="settings-link-tip">
+                音乐 API 与歌单配置已移至独立的「音乐管理」页面，方便测试歌单与预览曲目。
+              </p>
+              <RouterLink class="btn btn--sm" to="/admin/music">打开音乐管理 →</RouterLink>
             </div>
           </section>
         </div>
@@ -411,6 +403,13 @@ useSeo(() => ({
   color: var(--muted);
   font-size: 0.54rem;
   letter-spacing: 0.08em;
+}
+
+.settings-link-tip {
+  margin-bottom: 12px;
+  color: var(--muted);
+  font-size: 0.78rem;
+  line-height: 1.75;
 }
 
 .settings-side {

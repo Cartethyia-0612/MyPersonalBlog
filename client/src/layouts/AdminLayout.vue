@@ -28,6 +28,7 @@ const navGroups = [
       { label: '文章管理', to: '/admin/articles', icon: 'articles' },
       { label: '关于页', to: '/admin/about', icon: 'about' },
       { label: '友链管理', to: '/admin/friends', icon: 'friends' },
+      { label: '音乐管理', to: '/admin/music', icon: 'music' },
     ],
   },
   {
