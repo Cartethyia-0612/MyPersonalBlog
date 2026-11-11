@@ -15,6 +15,7 @@ import type {
 } from '@/types/admin'
 import type { ArticleDetail, ArticleStatus } from '@/types/content'
 import type { AdminMusicPlaylist, MusicPlaylistInput, MusicPlaylistResponse } from '@/types/music'
+import type { SeoKeyPatch, SeoOverview, SeoPushResponse } from '@/types/seo'
 
 export const authApi = {
   getSession(): Promise<SessionResponse> {
@@ -159,5 +160,20 @@ export const adminApi = {
   },
   previewMusicPlaylist(id: number): Promise<MusicPlaylistResponse> {
     return request<MusicPlaylistResponse>(`/api/admin/music/playlists/${id}/preview`)
+  },
+  getSeo(): Promise<SeoOverview> {
+    return request<SeoOverview>('/api/admin/seo')
+  },
+  updateSeo(patch: SeoKeyPatch): Promise<SeoOverview> {
+    return request<SeoOverview>('/api/admin/seo', {
+      method: 'PUT',
+      body: JSON.stringify(patch),
+    })
+  },
+  pushIndexNow(): Promise<SeoPushResponse> {
+    return request<SeoPushResponse>('/api/admin/seo/indexnow', { method: 'POST' })
+  },
+  pushBaidu(): Promise<SeoPushResponse> {
+    return request<SeoPushResponse>('/api/admin/seo/baidu', { method: 'POST' })
   },
 }

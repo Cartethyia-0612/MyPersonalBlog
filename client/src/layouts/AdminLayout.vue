@@ -35,6 +35,7 @@ const navGroups = [
     title: 'SYSTEM',
     items: [
       { label: '站点设置', to: '/admin/settings', icon: 'settings' },
+      { label: 'SEO 推送', to: '/admin/seo', icon: 'seo' },
       { label: '登录与安全', to: '/admin/security', icon: 'security' },
     ],
   },

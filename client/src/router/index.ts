@@ -62,6 +62,12 @@ const router = createRouter({
           meta: { title: '音乐管理', adminTitle: '音乐管理' },
         },
         {
+          path: 'seo',
+          name: 'admin-seo',
+          component: () => import('@/views/admin/AdminSeoView.vue'),
+          meta: { title: 'SEO 推送', adminTitle: 'SEO 推送' },
+        },
+        {
           path: 'settings',
           name: 'admin-settings',
           component: () => import('@/views/admin/AdminSettingsView.vue'),

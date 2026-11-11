@@ -13,6 +13,7 @@ import { createSessionMiddleware } from './middleware/session'
 import { createAdminRouter } from './routes/admin'
 import { createAuthRouter } from './routes/auth'
 import { createPublicRouter } from './routes/public'
+import { createSeoRouter } from './routes/seo'
 
 export interface AppDependencies {
   config: AppConfig
@@ -75,6 +76,10 @@ export function createApp({ config, db }: AppDependencies): Express {
   app.use('/api', (_req, res) => {
     res.status(404).json({ error: { code: 'NOT_FOUND', message: '接口不存在' } })
   })
+
+  // sitemap.xml, robots.txt and the IndexNow key verification file live in the
+  // site root and must be served before the SPA fallback.
+  app.use(createSeoRouter(db, config))
 
   // Uploaded assets are available in both dev and production, independent of
   // whether a built client exists yet.
