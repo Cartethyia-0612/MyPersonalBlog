@@ -4,7 +4,7 @@ import dotenv from 'dotenv'
 
 // Load the repository-level .env no matter whether this file is run from
 // server/src (dev) or server/dist (production).
-dotenv.config({ path: path.resolve(__dirname, '../../.env') })
+dotenv.config({ path: path.resolve(__dirname, '../../.env'), quiet: true })
 
 const projectRoot = path.resolve(__dirname, '../..')
 const isProduction = process.env.NODE_ENV === 'production'
@@ -28,11 +28,19 @@ function normalizeOrigin(value: string): string {
 
 const siteUrl = normalizeOrigin(process.env.SITE_URL || 'http://localhost:5173')
 const rawSecret = process.env.APP_SECRET?.trim() || ''
-const appSecret = rawSecret || 'dev-only-secret-please-replace-before-deploying-0123456789'
+const nodeEnv = isProduction
+  ? 'production'
+  : process.env.NODE_ENV === 'test'
+    ? 'test'
+    : 'development'
 
-if (isProduction && rawSecret.length < 32) {
-  throw new Error('APP_SECRET must be set to at least 32 characters in production.')
+if (nodeEnv !== 'test' && rawSecret.length < 32) {
+  throw new Error(
+    "APP_SECRET must be set to at least 32 characters. Generate one with: node -e \"console.log(require('crypto').randomBytes(48).toString('base64url'))\"",
+  )
 }
+
+const appSecret = rawSecret || 'test-only-secret-that-is-long-enough-for-test-environments'
 
 if (!/^https?:\/\//i.test(siteUrl)) {
   throw new Error('SITE_URL must start with http:// or https://')
@@ -48,6 +56,13 @@ const allowedOrigins = new Set(
       .map(normalizeOrigin),
   ].filter(Boolean),
 )
+
+// Vite's dev server may be opened through either hostname. This convenience is
+// never enabled in production.
+if (!isProduction) {
+  allowedOrigins.add('http://localhost:5173')
+  allowedOrigins.add('http://127.0.0.1:5173')
+}
 
 export interface AppConfig {
   nodeEnv: 'development' | 'production' | 'test'
@@ -66,11 +81,6 @@ export interface AppConfig {
   sessionTtlDays: number
 }
 
-const nodeEnv = isProduction
-  ? 'production'
-  : process.env.NODE_ENV === 'test'
-    ? 'test'
-    : 'development'
 const dbPath = process.env.DB_PATH
   ? path.resolve(process.env.DB_PATH)
   : path.join(projectRoot, 'data', 'blog.db')

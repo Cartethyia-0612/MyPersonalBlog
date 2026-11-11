@@ -2,11 +2,12 @@
   "name": "eshi-tech-notes",
   "version": "0.1.0",
   "private": true,
+  "type": "module",
   "description": "饿师傅的技术札记 — a Tianyi-blue geek personal blog built with Vue 3, Node.js and SQLite.",
   "packageManager": "pnpm@11.28.5",
   "engines": {
     "node": ">=22.12.0",
-    "pnpm": ">=10.0.0"
+    "pnpm": ">=11.0.0"
   },
   "scripts": {
     "dev": "concurrently -k -n server,client -c cyan,blue \"pnpm --filter @eshi/server dev\" \"pnpm --filter @eshi/client dev\"",
