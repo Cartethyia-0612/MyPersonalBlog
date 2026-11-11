@@ -6,6 +6,9 @@ import { usePlayerStore } from '@/stores/player'
 
 const player = usePlayerStore()
 const coverFailed = ref(false)
+const mobileVolumeOpen = ref(false)
+const mobileVolumeControl = ref<HTMLElement | null>(null)
+const mobileVolumePopover = ref<HTMLElement | null>(null)
 
 const progressPercent = computed(() => player.progress)
 const durationPercent = computed(() => (player.duration > 0 ? 100 : 0))
@@ -32,6 +35,27 @@ function onVolume(event: Event): void {
   player.setVolume(Number((event.target as HTMLInputElement).value) / 100)
 }
 
+function toggleMobileVolume(): void {
+  mobileVolumeOpen.value = !mobileVolumeOpen.value
+}
+
+function handleOutsidePointer(event: PointerEvent): void {
+  if (!mobileVolumeOpen.value) return
+  const target = event.target
+  if (!(target instanceof Node)) return
+  if (mobileVolumeControl.value?.contains(target)) return
+  if (mobileVolumePopover.value?.contains(target)) return
+  mobileVolumeOpen.value = false
+}
+
+function handleKeydown(event: KeyboardEvent): void {
+  if (event.key === 'Escape') mobileVolumeOpen.value = false
+}
+
+function handleResize(): void {
+  if (window.innerWidth > 980) mobileVolumeOpen.value = false
+}
+
 function selectTrack(index: number): void {
   player.loadIndex(index, true)
 }
@@ -47,12 +71,25 @@ watch(
   },
 )
 
+watch(
+  () => player.hidden,
+  (hidden) => {
+    if (hidden) mobileVolumeOpen.value = false
+  },
+)
+
 onMounted(() => {
   void player.init()
+  document.addEventListener('pointerdown', handleOutsidePointer)
+  document.addEventListener('keydown', handleKeydown)
+  window.addEventListener('resize', handleResize, { passive: true })
 })
 
 onBeforeUnmount(() => {
   player.pause()
+  document.removeEventListener('pointerdown', handleOutsidePointer)
+  document.removeEventListener('keydown', handleKeydown)
+  window.removeEventListener('resize', handleResize)
 })
 </script>
 
@@ -352,6 +389,37 @@ onBeforeUnmount(() => {
                 />
               </div>
 
+              <div ref="mobileVolumeControl" class="mobile-volume-control">
+                <button
+                  type="button"
+                  class="mobile-volume-button"
+                  :aria-expanded="mobileVolumeOpen"
+                  aria-controls="music-mobile-volume"
+                  :aria-label="`调节音量，当前 ${volumePercent}%`"
+                  :title="`音量 ${volumePercent}%`"
+                  @click="toggleMobileVolume"
+                >
+                  <svg
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="1.8"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    aria-hidden="true"
+                  >
+                    <path d="M11 5 6 9H3v6h3l5 4z" />
+                    <path
+                      v-if="volumePercent > 0"
+                      d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13"
+                    />
+                    <path v-else d="m16 9 5 6M21 9l-5 6" />
+                  </svg>
+                </button>
+              </div>
+
               <button
                 type="button"
                 class="music-queue-toggle"
@@ -399,6 +467,29 @@ onBeforeUnmount(() => {
             </div>
           </div>
           <div class="music-bar__line" aria-hidden="true" />
+
+          <Transition name="volume-pop">
+            <div
+              v-if="mobileVolumeOpen"
+              id="music-mobile-volume"
+              ref="mobileVolumePopover"
+              class="mobile-volume-popover"
+              role="group"
+              aria-label="音量调节"
+            >
+              <span class="mono mobile-volume-popover__value">{{ volumePercent }}%</span>
+              <input
+                type="range"
+                min="0"
+                max="100"
+                step="1"
+                :value="volumePercent"
+                :style="{ '--volume': `${volumePercent}%` }"
+                aria-label="调节音量"
+                @input="onVolume"
+              />
+            </div>
+          </Transition>
         </div>
       </div>
     </Transition>
@@ -927,6 +1018,84 @@ input[type='range']::-moz-range-thumb {
   width: 65px;
 }
 
+.mobile-volume-control {
+  position: relative;
+  display: none;
+  align-items: center;
+}
+
+.mobile-volume-button {
+  display: grid;
+  width: 27px;
+  height: 27px;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--muted);
+  transition:
+    color var(--duration-fast) ease,
+    background-color var(--duration-fast) ease;
+}
+
+.mobile-volume-button:hover,
+.mobile-volume-button[aria-expanded='true'] {
+  background: rgba(var(--brand-rgb), 0.11);
+  color: var(--brand-deep);
+}
+
+:root[data-theme='dark'] .mobile-volume-button:hover,
+:root[data-theme='dark'] .mobile-volume-button[aria-expanded='true'] {
+  color: var(--brand);
+}
+
+.mobile-volume-popover {
+  position: absolute;
+  right: 82px;
+  bottom: calc(100% + 12px);
+  z-index: 5;
+  display: flex;
+  width: 190px;
+  align-items: center;
+  gap: 9px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-solid);
+  box-shadow: var(--shadow-md);
+}
+
+.mobile-volume-popover__value {
+  width: 32px;
+  flex: none;
+  color: var(--brand-deep);
+  font-size: 0.56rem;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+:root[data-theme='dark'] .mobile-volume-popover__value {
+  color: var(--brand);
+}
+
+.mobile-volume-popover input[type='range'] {
+  flex: 1;
+  width: auto;
+}
+
+.volume-pop-enter-active,
+.volume-pop-leave-active {
+  transition:
+    opacity var(--duration-fast) ease,
+    transform var(--duration-fast) var(--ease-out);
+}
+
+.volume-pop-enter-from,
+.volume-pop-leave-to {
+  opacity: 0;
+  transform: translateY(6px);
+}
+
 .music-panel {
   width: min(100% - 32px, 1240px);
   max-height: min(48vh, 430px);
@@ -1185,6 +1354,10 @@ input[type='range']::-moz-range-thumb {
     display: none;
   }
 
+  .mobile-volume-control {
+    display: inline-flex;
+  }
+
   .now-playing__copy > .mono {
     display: none;
   }
@@ -1242,6 +1415,16 @@ input[type='range']::-moz-range-thumb {
   .music-hide {
     width: 24px;
     height: 24px;
+  }
+
+  .mobile-volume-button {
+    width: 24px;
+    height: 24px;
+  }
+
+  .mobile-volume-popover {
+    width: 178px;
+    padding: 9px 11px;
   }
 
   .music-restore {
@@ -1305,6 +1488,11 @@ input[type='range']::-moz-range-thumb {
   .music-spinner,
   .music-loading-dot {
     animation: none;
+  }
+
+  .volume-pop-enter-active,
+  .volume-pop-leave-active {
+    transition: none;
   }
 }
 </style>
