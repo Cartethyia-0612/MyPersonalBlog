@@ -43,6 +43,13 @@ export async function request<T>(path: string, fetchOptions: RequestInit = {}): 
   }
 
   if (!response.ok) {
+    if (
+      response.status === 401 &&
+      !path.startsWith('/api/auth/') &&
+      typeof window !== 'undefined'
+    ) {
+      window.dispatchEvent(new CustomEvent('eshi:unauthorized'))
+    }
     const payload = (data ?? {}) as ApiErrorPayload
     throw new ApiError(
       response.status,

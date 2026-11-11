@@ -13,11 +13,20 @@ export default tseslint.config(
       'client/public/**',
       'data/**',
       'uploads/**',
+      'backups/**',
     ],
   },
   js.configs.recommended,
   ...tseslint.configs.recommended,
   ...pluginVue.configs['flat/recommended'],
+  {
+    files: ['scripts/**/*.{js,mjs}', 'eslint.config.js'],
+    languageOptions: {
+      globals: {
+        ...globals.node,
+      },
+    },
+  },
   {
     files: ['**/*.{ts,vue}'],
     languageOptions: {

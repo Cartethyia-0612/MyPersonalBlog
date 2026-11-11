@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router'
-
 import AdminIcon from '@/components/admin/AdminIcon.vue'
 import ToastHost from '@/components/admin/ToastHost.vue'
 import BrandMark from '@/components/BrandMark.vue'
@@ -18,6 +17,7 @@ const siteStore = useSiteStore()
 const toastStore = useToastStore()
 const sidebarOpen = ref(false)
 const iconFailed = ref(false)
+const handlingUnauthorized = ref(false)
 let notifyTimer: number | undefined
 
 const navGroups = [
@@ -74,6 +74,7 @@ watch(
 
 onMounted(() => {
   void siteStore.load()
+  window.addEventListener('eshi:unauthorized', handleUnauthorized)
   const tipShown = window.sessionStorage.getItem('eshi-totp-tip') === '1'
   if (!tipShown && !authStore.user?.totpEnabled) {
     notifyTimer = window.setTimeout(() => {
@@ -85,7 +86,19 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   window.clearTimeout(notifyTimer)
+  window.removeEventListener('eshi:unauthorized', handleUnauthorized)
 })
+
+async function handleUnauthorized(): Promise<void> {
+  if (handlingUnauthorized.value) return
+  handlingUnauthorized.value = true
+  authStore.reset()
+  toastStore.notify('登录状态已过期，请重新登录', 'error')
+  await router.replace({
+    name: 'admin-login',
+    query: { redirect: route.fullPath },
+  })
+}
 
 async function handleLogout(): Promise<void> {
   await authStore.logout()

@@ -1,6 +1,6 @@
 {
   "name": "@eshi/server",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "private": true,
   "description": "Express + SQLite API for 饿师傅的技术札记",
   "main": "dist/index.js",
@@ -11,7 +11,9 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "setup": "tsx scripts/setup.ts"
+    "setup": "tsx scripts/setup.ts",
+    "seed:demo": "tsx scripts/seed-demo.ts",
+    "backup": "tsx scripts/backup.ts"
   },
   "dependencies": {
     "bcryptjs": "^3.0.2",
@@ -23,7 +25,7 @@
     "multer": "^2.0.2",
     "otplib": "^12.0.1",
     "qrcode": "^1.5.4",
-    "zod": "^3.25.0"
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.13",

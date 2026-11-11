@@ -15,6 +15,7 @@ coverage/
 # runtime data
 data/
 uploads/
+backups/
 *.db
 *.db-wal
 *.db-shm

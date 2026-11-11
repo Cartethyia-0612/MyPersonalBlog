@@ -14,6 +14,7 @@ import { createAdminRouter } from './routes/admin'
 import { createAuthRouter } from './routes/auth'
 import { createPublicRouter } from './routes/public'
 import { createSeoRouter } from './routes/seo'
+import { renderSpaHtml } from './services/spaMeta'
 
 export interface AppDependencies {
   config: AppConfig
@@ -99,8 +100,12 @@ export function createApp({ config, db }: AppDependencies): Express {
   // missing API path can never fall back to HTML.
   if (fs.existsSync(path.join(config.clientDistDir, 'index.html'))) {
     app.use(express.static(config.clientDistDir, { index: false, maxAge: '1h' }))
-    app.get(/.*/, (_req, res) => {
-      res.sendFile(path.join(config.clientDistDir, 'index.html'))
+    app.get(/.*/, (req, res, next) => {
+      // Missing static assets should stay 404 instead of returning the SPA.
+      if (path.extname(req.path)) return next()
+      const rendered = renderSpaHtml(db, config, req.path)
+      if (!rendered) return res.sendFile(path.join(config.clientDistDir, 'index.html'))
+      res.status(rendered.status).type('html').send(rendered.html)
     })
   } else {
     app.get('/', (_req, res) => {

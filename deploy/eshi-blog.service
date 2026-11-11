@@ -1,0 +1,25 @@
+[Unit]
+Description=饿师傅的技术札记 (Vue + Node + SQLite)
+Documentation=https://github.com/your-name/eshi-tech-notes
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=eshi
+Group=eshi
+WorkingDirectory=/opt/eshi-blog
+EnvironmentFile=/opt/eshi-blog/.env
+ExecStart=/usr/bin/node /opt/eshi-blog/server/dist/index.js
+Restart=always
+RestartSec=3
+TimeoutStopSec=10
+KillSignal=SIGTERM
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
+ReadWritePaths=/var/lib/eshi-blog
+
+[Install]
+WantedBy=multi-user.target

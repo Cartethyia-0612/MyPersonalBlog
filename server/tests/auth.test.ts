@@ -8,6 +8,7 @@ import {
   ADMIN_USERNAME,
   createAgentContext,
   createTestContext,
+  loginAsAdmin,
   seedAdmin,
   type TestContext,
 } from './helpers'
@@ -214,5 +215,48 @@ describe('admin authentication', () => {
     expect([400, 401]).toContain(bad.status)
     const session = await agent.get('/api/auth/session')
     expect(session.body.authenticated).toBe(false)
+  })
+
+  it('changes the password and revokes other sessions', async () => {
+    const first = await createAgentContext()
+    context = first.context
+    await seedAdmin(first.context.db)
+    const firstCsrf = await loginAsAdmin(first.agent, first.csrfToken)
+
+    const secondAgent = request.agent(first.context.app)
+    const secondSession = await secondAgent.get('/api/auth/session')
+    await loginAsAdmin(secondAgent, secondSession.body.csrfToken as string)
+
+    const wrong = await first.agent
+      .post('/api/admin/security/password')
+      .set('X-CSRF-Token', firstCsrf)
+      .send({ currentPassword: 'wrong-password', newPassword: 'new-secure-password-456' })
+    expect(wrong.status).toBe(400)
+
+    const newPassword = 'new-secure-password-456'
+    const changed = await first.agent
+      .post('/api/admin/security/password')
+      .set('X-CSRF-Token', firstCsrf)
+      .send({ currentPassword: ADMIN_PASSWORD, newPassword })
+    expect(changed.status).toBe(200)
+
+    const secondAfter = await secondAgent.get('/api/auth/session')
+    expect(secondAfter.body.authenticated).toBe(false)
+
+    await first.agent.post('/api/auth/logout').set('X-CSRF-Token', firstCsrf)
+    const fresh = await first.agent.get('/api/auth/session')
+    const freshCsrf = fresh.body.csrfToken as string
+
+    const oldPasswordLogin = await first.agent
+      .post('/api/auth/login')
+      .set('X-CSRF-Token', freshCsrf)
+      .send({ username: ADMIN_USERNAME, password: ADMIN_PASSWORD })
+    expect(oldPasswordLogin.status).toBe(401)
+
+    const newPasswordLogin = await first.agent
+      .post('/api/auth/login')
+      .set('X-CSRF-Token', freshCsrf)
+      .send({ username: ADMIN_USERNAME, password: newPassword })
+    expect(newPasswordLogin.status).toBe(200)
   })
 })
