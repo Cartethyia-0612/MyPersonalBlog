@@ -29,6 +29,9 @@ async function main(): Promise<void> {
 
   console.log(`[backup] 数据库已备份: ${dbTarget}`)
   if (fs.existsSync(uploadsTarget)) console.log(`[backup] 上传目录已备份: ${uploadsTarget}`)
+  console.log(
+    '[backup] 重要：备份目录不包含 .env / APP_SECRET；请另行加密备份 APP_SECRET，否则恢复后无法解密 TOTP。',
+  )
   console.log('[backup] 请将整个备份目录复制到另一台机器或对象存储。')
 }
 

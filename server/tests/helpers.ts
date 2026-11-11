@@ -21,6 +21,7 @@ export function createTestContext(): TestContext {
     nodeEnv: 'test',
     isProduction: false,
     port: 3000,
+    host: '127.0.0.1',
     siteUrl: 'http://localhost:5173',
     appSecret: 'test-app-secret-that-is-definitely-long-enough',
     cookieSecure: false,

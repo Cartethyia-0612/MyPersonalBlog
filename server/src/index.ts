@@ -14,8 +14,8 @@ pruneOldAttempts(db)
 
 const app = createApp({ config, db })
 
-const server = app.listen(config.port, () => {
-  console.log(`[server] listening on http://localhost:${config.port} (${config.nodeEnv})`)
+const server = app.listen(config.port, config.host, () => {
+  console.log(`[server] listening on http://${config.host}:${config.port} (${config.nodeEnv})`)
   console.log(`[server] database: ${config.dbPath}`)
 })
 

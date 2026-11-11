@@ -28,6 +28,7 @@ function normalizeOrigin(value: string): string {
 
 const siteUrl = normalizeOrigin(process.env.SITE_URL || 'http://localhost:5173')
 const port = readPort(process.env.PORT)
+const host = process.env.HOST?.trim() || '127.0.0.1'
 const rawSecret = process.env.APP_SECRET?.trim() || ''
 const nodeEnv = isProduction
   ? 'production'
@@ -72,6 +73,7 @@ export interface AppConfig {
   nodeEnv: 'development' | 'production' | 'test'
   isProduction: boolean
   port: number
+  host: string
   siteUrl: string
   appSecret: string
   cookieSecure: boolean
@@ -96,6 +98,7 @@ export const config: AppConfig = {
   nodeEnv,
   isProduction,
   port,
+  host,
   siteUrl,
   appSecret,
   cookieSecure: readBoolean(process.env.COOKIE_SECURE, isProduction),

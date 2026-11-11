@@ -80,15 +80,38 @@ export function getBaseSiteUrl(db: Db, config: AppConfig): string {
   }
 }
 
+function isPrivateHostname(rawHostname: string): boolean {
+  const host = rawHostname.toLowerCase().replace(/^\[|\]$/g, '')
+  if (!host) return true
+  if (host === 'localhost' || host.endsWith('.local')) return true
+
+  const ipv4 = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(host)
+  if (ipv4) {
+    const [first, second] = [Number(ipv4[1]), Number(ipv4[2])]
+    return (
+      first === 0 ||
+      first === 10 ||
+      first === 127 ||
+      (first === 169 && second === 254) ||
+      (first === 172 && second >= 16 && second <= 31) ||
+      (first === 192 && second === 168) ||
+      (first === 100 && second >= 64 && second <= 127)
+    )
+  }
+
+  if (host === '::' || host === '::1' || host === '0:0:0:0:0:0:0:1') return true
+  if (host.startsWith('::ffff:')) return true
+  if (/^f[cd][0-9a-f]{2}:/.test(host)) return true
+  if (/^fe[89ab][0-9a-f]:/.test(host)) return true
+
+  return false
+}
+
 export function isPublicSiteUrl(url: string): boolean {
   try {
     const parsed = new URL(url)
     if (!['http:', 'https:'].includes(parsed.protocol)) return false
-    const host = parsed.hostname.toLowerCase()
-    if (host === 'localhost' || host === '::1' || host.endsWith('.local')) return false
-    if (/^127\./.test(host) || /^10\./.test(host) || /^192\.168\./.test(host)) return false
-    if (/^172\.(1[6-9]|2\d|3[01])\./.test(host)) return false
-    return true
+    return !isPrivateHostname(parsed.hostname)
   } catch {
     return false
   }

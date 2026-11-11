@@ -4,15 +4,13 @@ FROM node:24-bookworm-slim
 
 ENV NODE_ENV=production \
     PORT=3000 \
-    CI=true \
-    PNPM_HOME=/pnpm \
-    PATH=/pnpm:$PATH
+    HOST=0.0.0.0 \
+    CI=true
 
 RUN apt-get update \
   && apt-get install -y --no-install-recommends ca-certificates python3 make g++ \
   && rm -rf /var/lib/apt/lists/* \
-  && corepack enable \
-  && corepack prepare pnpm@11.28.5 --activate
+  && npm install -g pnpm@11.28.5
 
 WORKDIR /app
 

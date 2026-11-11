@@ -3,7 +3,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    image: eshi-tech-notes:1.0.0
+    image: eshi-tech-notes:1.1.7
     container_name: eshi-blog
     restart: unless-stopped
     init: true
@@ -12,6 +12,7 @@ services:
     environment:
       NODE_ENV: production
       PORT: 3000
+      HOST: 0.0.0.0
       DB_PATH: /app/data/blog.db
       UPLOAD_DIR: /app/uploads
       TRUST_PROXY: '1'

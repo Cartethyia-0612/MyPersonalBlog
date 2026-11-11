@@ -2,6 +2,7 @@ import request from 'supertest'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { closeDatabase } from '../src/db'
+import { isPublicSiteUrl } from '../src/services/seo'
 import { createTestContext, loginAsAdmin, seedAdmin, type TestContext } from './helpers'
 
 let context: TestContext | undefined
@@ -131,6 +132,34 @@ describe('SEO public endpoints', () => {
       'https://blog.example.com/test-indexnow-key-2026.txt',
     )
     expect(overview.body.indexNow.keyPreview).not.toBe('test-indexnow-key-2026')
+  })
+})
+
+describe('SEO public URL guard', () => {
+  it('accepts public domains and IPs but rejects local, private and reserved addresses', () => {
+    expect(isPublicSiteUrl('https://blog.example.com')).toBe(true)
+    expect(isPublicSiteUrl('https://1.1.1.1')).toBe(true)
+    expect(isPublicSiteUrl('https://[2606:4700:4700::1111]')).toBe(true)
+
+    for (const url of [
+      'http://localhost:3000',
+      'http://foo.local',
+      'http://127.0.0.1:3000',
+      'http://0.0.0.0:3000',
+      'http://10.0.0.1',
+      'http://172.16.0.1',
+      'http://192.168.1.1',
+      'http://169.254.169.254',
+      'http://100.64.0.1',
+      'http://[::1]:3000',
+      'http://[fd00::1]',
+      'http://[fe80::1]',
+      'http://[::ffff:192.168.1.1]',
+      'ftp://blog.example.com',
+      'not-a-url',
+    ]) {
+      expect(isPublicSiteUrl(url), url).toBe(false)
+    }
   })
 })
 

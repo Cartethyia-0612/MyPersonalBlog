@@ -1,6 +1,5 @@
 [Unit]
 Description=饿师傅的技术札记 (Vue + Node + SQLite)
-Documentation=https://github.com/your-name/eshi-tech-notes
 After=network-online.target
 Wants=network-online.target
 
@@ -17,7 +16,7 @@ TimeoutStopSec=10
 KillSignal=SIGTERM
 NoNewPrivileges=true
 PrivateTmp=true
-ProtectSystem=full
+ProtectSystem=strict
 ProtectHome=true
 ReadWritePaths=/var/lib/eshi-blog
 

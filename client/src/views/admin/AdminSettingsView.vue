@@ -150,7 +150,7 @@ useSeo(() => ({
     <AdminPageHeader
       eyebrow="SYSTEM / SITE_CONFIG"
       title="站点设置"
-      description="修改站点身份、站点 Icon、页脚备案信息和音乐 API 地址。保存后前台立即生效。"
+      description="修改站点身份、站点 Icon 和页脚备案信息。保存后前台立即生效。"
     >
       <template #actions>
         <RouterLink class="btn btn--ghost btn--sm" to="/" target="_blank" rel="noopener">
