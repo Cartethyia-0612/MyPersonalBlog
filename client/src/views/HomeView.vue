@@ -1,58 +1,114 @@
 <script setup lang="ts">
-const bootLines = [
-  { prompt: '$', text: 'whoami', result: '> 饿师傅 / engineer & daydreamer' },
+import { computed, onMounted, ref } from 'vue'
+import { RouterLink } from 'vue-router'
+
+import ArticleCard from '@/components/ArticleCard.vue'
+import { publicApi } from '@/lib/api'
+import { useSeo } from '@/lib/seo'
+import { useSiteStore } from '@/stores/site'
+import type { ArticleSummary } from '@/types/content'
+
+const siteStore = useSiteStore()
+const latestArticles = ref<ArticleSummary[]>([])
+const totalArticles = ref(0)
+const loading = ref(true)
+const error = ref('')
+const currentYear = new Date().getFullYear()
+
+const terminalLines = computed(() => [
   {
     prompt: '$',
-    text: 'cat /etc/esrs.conf',
-    result: '> theme=tianyi-blue  stack=vue3+node+sqlite',
+    text: 'whoami',
+    result: `> ${siteStore.site.author || '饿师傅'} / engineer & daydreamer`,
   },
-  { prompt: '$', text: 'grep -r "comments" ./', result: '> 0 matches — 保持安静，保持专注。' },
-]
+  {
+    prompt: '$',
+    text: 'cat ./motto.txt',
+    result: `> ${siteStore.site.tagline || '把灵感写成可复用的代码'}`,
+  },
+  {
+    prompt: '$',
+    text: 'ls ./notes | wc -l',
+    result: `> ${totalArticles.value} entries and counting`,
+  },
+  { prompt: '$', text: 'grep -r "comments" ./', result: '> no match. quiet is a feature.' },
+])
+
+async function loadLatest(): Promise<void> {
+  loading.value = true
+  error.value = ''
+  try {
+    const data = await publicApi.getArticles({ page: 1, pageSize: 3 })
+    latestArticles.value = data.items
+    totalArticles.value = data.pagination.total
+  } catch (err) {
+    error.value = err instanceof Error ? err.message : '文章加载失败'
+  } finally {
+    loading.value = false
+  }
+}
+
+onMounted(() => {
+  void loadLatest()
+})
+
+useSeo(() => ({
+  description: siteStore.site.description || siteStore.site.tagline,
+  type: 'website',
+}))
 </script>
 
 <template>
   <div class="home page">
     <section class="hero container">
       <div class="hero__copy">
-        <p class="eyebrow">ESRS.TECH / PERSONAL LOGBOOK</p>
+        <p class="eyebrow">PERSONAL LOGBOOK / {{ currentYear }}</p>
         <h1 class="hero__title">
-          把灵感
+          把灵感写成
           <br />
-          写成<span class="text-gradient">可复用的代码。</span>
+          <span class="text-gradient">可复用的代码。</span>
         </h1>
         <p class="hero__lede">
-          这里是饿师傅的技术札记。记录工程实践、工具折腾与那些突然闪现的灵感。用天依蓝作底色，把复杂的问题拆成清晰的步骤。
+          {{ siteStore.site.description || siteStore.site.tagline }}
         </p>
+        <p class="hero__sign mono">{{ siteStore.site.name }} · {{ siteStore.site.tagline }}</p>
 
         <div class="hero__actions">
-          <span class="btn btn--primary is-disabled" aria-disabled="true">文章模块构建中</span>
-          <a
-            class="btn btn--ghost"
-            href="https://github.com"
-            target="_blank"
-            rel="noreferrer noopener"
-          >
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-              <path
-                d="M12 .5a12 12 0 0 0-3.8 23.4c.6.1.8-.3.8-.6v-2.1c-3.3.7-4-1.6-4-1.6-.6-1.4-1.3-1.8-1.3-1.8-1.1-.7.1-.7.1-.7 1.2.1 1.9 1.2 1.9 1.2 1 1.8 2.8 1.3 3.5 1 .1-.8.4-1.3.8-1.6-2.7-.3-5.5-1.3-5.5-6a4.7 4.7 0 0 1 1.2-3.2 4.4 4.4 0 0 1 .1-3.2s1-.3 3.3 1.2a11.4 11.4 0 0 1 6 0C17.3 4.6 18.3 5 18.3 5a4.4 4.4 0 0 1 .1 3.2 4.7 4.7 0 0 1 1.2 3.2c0 4.7-2.8 5.7-5.5 6 .4.4.8 1.1.8 2.2v3.2c0 .3.2.7.8.6A12 12 0 0 0 12 .5Z"
-              />
+          <RouterLink class="btn btn--primary" to="/articles">
+            阅读札记
+            <svg
+              width="15"
+              height="15"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.8"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M5 12h14M13 6l6 6-6 6" />
             </svg>
-            GitHub
-          </a>
+          </RouterLink>
+          <RouterLink class="btn btn--ghost" to="/about">关于饿师傅</RouterLink>
         </div>
 
         <dl class="hero__meta mono">
           <div>
-            <dt>STACK</dt>
-            <dd>VUE3 / NODE / SQLITE</dd>
+            <dt>LOGS</dt>
+            <dd>{{ loading ? '--' : String(totalArticles).padStart(2, '0') }}</dd>
+          </div>
+          <div>
+            <dt>AUTHOR</dt>
+            <dd>{{ siteStore.site.author || '饿师傅' }}</dd>
           </div>
           <div>
             <dt>THEME</dt>
-            <dd>TIANYI_BLUE #66CCFF</dd>
+            <dd>TIANYI_BLUE</dd>
           </div>
           <div>
             <dt>STATUS</dt>
-            <dd class="hero__meta-online">M1 / FOUNDATION</dd>
+            <dd class="hero__meta-online">ONLINE</dd>
           </div>
         </dl>
       </div>
@@ -71,11 +127,11 @@ const bootLines = [
             <span class="mono terminal__status">● ONLINE</span>
           </div>
           <div class="terminal__body mono">
-            <template v-for="(line, index) in bootLines" :key="line.text">
-              <p class="terminal__command" :style="{ animationDelay: `${index * 220}ms` }">
+            <template v-for="(line, index) in terminalLines" :key="line.text">
+              <p class="terminal__command" :style="{ animationDelay: `${index * 180}ms` }">
                 <span class="terminal__prompt">{{ line.prompt }}</span> {{ line.text }}
               </p>
-              <p class="terminal__result" :style="{ animationDelay: `${index * 220 + 110}ms` }">
+              <p class="terminal__result" :style="{ animationDelay: `${index * 180 + 90}ms` }">
                 {{ line.result }}
               </p>
             </template>
@@ -86,80 +142,121 @@ const bootLines = [
         </div>
 
         <div class="floating-chip floating-chip--one mono">// NO_COMMENTS</div>
-        <div class="floating-chip floating-chip--two mono">♪ 天依蓝</div>
+        <div class="floating-chip floating-chip--two mono">♪ {{ siteStore.site.tagline }}</div>
       </div>
     </section>
 
-    <section class="foundation container">
-      <div class="foundation__heading">
-        <p class="eyebrow">MILESTONE 01</p>
-        <h2>先把地基，浇进蓝色里。</h2>
-        <p>
-          工程骨架、设计令牌与双主题已就位。接下来的文章、友链、后台和播放器，会在这套基底上逐层生长。
-        </p>
+    <section class="latest container">
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">LATEST LOGS</p>
+          <h2>最近写下的</h2>
+        </div>
+        <RouterLink class="section-heading__link mono" to="/articles">
+          VIEW_ALL_LOGS
+          <span>→</span>
+        </RouterLink>
       </div>
-      <div class="foundation__grid">
-        <article class="foundation__card card">
-          <span class="foundation__index mono">01</span>
-          <h3>天依蓝视觉系统</h3>
-          <p>#66CCFF 主色、深空背景、六边形与声波意象，加上克制的网格与扫描线。</p>
-        </article>
-        <article class="foundation__card card">
-          <span class="foundation__index mono">02</span>
-          <h3>双主题与本地记忆</h3>
-          <p>浅色、深色、跟随系统三种模式，首屏前置应用，避免刷新时闪白。</p>
-        </article>
-        <article class="foundation__card card">
-          <span class="foundation__index mono">03</span>
-          <h3>克制的动效</h3>
-          <p>首次进入加载界面、路由顶部进度条，以及会尊重 reduced-motion 的过渡。</p>
-        </article>
+
+      <div v-if="loading" class="latest__grid" aria-label="文章加载中">
+        <div v-for="item in 3" :key="item" class="skeleton-card card" aria-hidden="true">
+          <div class="skeleton-card__cover" />
+          <div class="skeleton-card__body">
+            <span class="skeleton-line skeleton-line--short" />
+            <span class="skeleton-line" />
+            <span class="skeleton-line skeleton-line--medium" />
+          </div>
+        </div>
       </div>
+
+      <div v-else-if="error" class="state-card card">
+        <p class="mono">SIGNAL_ERROR</p>
+        <h3>文章暂时没有加载出来</h3>
+        <p>{{ error }}</p>
+        <button type="button" class="btn btn--sm" @click="loadLatest">重新连接</button>
+      </div>
+
+      <div v-else-if="latestArticles.length === 0" class="state-card card state-card--empty">
+        <span class="state-card__glyph mono">[ EMPTY_LOG ]</span>
+        <h3>第一篇文章，正在草稿箱里发光。</h3>
+        <p>内容正在准备中。等一等，或者去关于页认识一下饿师傅。</p>
+        <RouterLink class="btn btn--sm" to="/about">关于本站</RouterLink>
+      </div>
+
+      <div v-else class="latest__grid">
+        <ArticleCard
+          v-for="(article, index) in latestArticles"
+          :key="article.id"
+          :article="article"
+          :index="index"
+        />
+      </div>
+    </section>
+
+    <section class="portals container">
+      <RouterLink class="portal-card card" to="/about">
+        <span class="portal-card__index mono">01 / ABOUT</span>
+        <div class="portal-card__content">
+          <h3>关于这个博客</h3>
+          <p>一个由 Vue、Node 与天依蓝构成的安静角落。没有评论区，只有持续的记录。</p>
+        </div>
+        <span class="portal-card__arrow" aria-hidden="true">↗</span>
+      </RouterLink>
+      <RouterLink class="portal-card card" to="/friends">
+        <span class="portal-card__index mono">02 / LINKS</span>
+        <div class="portal-card__content">
+          <h3>友链传输门</h3>
+          <p>去看一些同样在认真写字的站点。网络的意义，是彼此连接。</p>
+        </div>
+        <span class="portal-card__arrow" aria-hidden="true">↗</span>
+      </RouterLink>
     </section>
   </div>
 </template>
 
 <style scoped>
 .home {
-  overflow: hidden;
+  padding-top: 0;
 }
 
 .hero {
   display: grid;
   grid-template-columns: minmax(0, 1.06fr) minmax(360px, 0.94fr);
   align-items: center;
-  gap: clamp(36px, 7vw, 88px);
-  min-height: calc(100vh - var(--header-height) - 90px);
-  padding-top: 52px;
-  padding-bottom: 72px;
+  gap: clamp(32px, 6vw, 82px);
+  min-height: calc(100vh - var(--header-height) - 40px);
+  padding-top: 54px;
+  padding-bottom: 58px;
 }
 
 .hero__title {
-  max-width: 780px;
-  margin-top: 17px;
-  font-size: clamp(2.45rem, 5.9vw, 4.8rem);
+  max-width: 760px;
+  margin-top: 18px;
+  font-size: clamp(2.55rem, 5.7vw, 4.7rem);
   line-height: 1.04;
-  letter-spacing: -0.045em;
+  letter-spacing: -0.05em;
 }
 
 .hero__lede {
-  max-width: 570px;
+  max-width: 550px;
   margin-top: 23px;
-  font-size: clamp(0.95rem, 1.3vw, 1.04rem);
-  line-height: 1.9;
   color: var(--text-soft);
+  font-size: clamp(0.95rem, 1.35vw, 1.05rem);
+  line-height: 1.9;
+}
+
+.hero__sign {
+  margin-top: 12px;
+  color: var(--muted);
+  font-size: 0.64rem;
+  letter-spacing: 0.05em;
 }
 
 .hero__actions {
   display: flex;
   flex-wrap: wrap;
   gap: 11px;
-  margin-top: 29px;
-}
-
-.hero__actions .is-disabled {
-  cursor: default;
-  opacity: 0.8;
+  margin-top: 28px;
 }
 
 .hero__meta {
@@ -175,29 +272,62 @@ const bootLines = [
 }
 
 .hero__meta dt {
-  font-size: 0.58rem;
-  letter-spacing: 0.18em;
   color: var(--muted);
+  font-size: 0.56rem;
+  letter-spacing: 0.18em;
 }
 
 .hero__meta dd {
   margin: 0;
-  font-size: 0.68rem;
-  letter-spacing: 0.05em;
   color: var(--text-soft);
+  font-size: 0.67rem;
+  letter-spacing: 0.04em;
 }
 
 .hero__meta-online {
-  color: var(--brand-deep) !important;
+  color: #2f9e6e !important;
 }
 
 :root[data-theme='dark'] .hero__meta-online {
-  color: var(--brand) !important;
+  color: #6ee7b7 !important;
 }
 
 .hero__visual {
   position: relative;
-  padding: 40px 12px;
+  padding: 40px 10px;
+}
+
+.orbital {
+  position: absolute;
+  inset: 2% -7% 4% 12%;
+  opacity: 0.75;
+  pointer-events: none;
+}
+
+.orbital__ring {
+  position: absolute;
+  inset: 0;
+  border: 1px solid rgba(var(--brand-rgb), 0.26);
+  border-radius: 50%;
+  transform: rotate(-19deg) scaleY(0.58);
+}
+
+.orbital__ring--two {
+  inset: 9% -4%;
+  opacity: 0.5;
+  transform: rotate(24deg) scaleY(0.73);
+}
+
+.orbital__dot {
+  position: absolute;
+  top: 7%;
+  right: 9%;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--brand);
+  box-shadow: 0 0 24px 7px rgba(var(--brand-rgb), 0.42);
+  animation: dot-orbit 9s linear infinite;
 }
 
 .terminal {
@@ -220,7 +350,7 @@ const bootLines = [
   border-bottom: 1px solid var(--border);
   background: var(--surface-alt);
   color: var(--muted);
-  font-size: 0.62rem;
+  font-size: 0.61rem;
 }
 
 .terminal__lights {
@@ -253,12 +383,12 @@ const bootLines = [
 }
 
 .terminal__body {
-  min-height: 276px;
-  padding: 25px 22px;
+  min-height: 282px;
+  padding: 24px 21px;
   background:
     linear-gradient(160deg, rgba(var(--brand-rgb), 0.08), transparent 52%), var(--code-bg);
   color: #d7edf8;
-  font-size: 0.71rem;
+  font-size: 0.7rem;
   line-height: 1.7;
 }
 
@@ -299,60 +429,32 @@ const bootLines = [
   animation: blink 1s step-end infinite;
 }
 
-.orbital {
-  position: absolute;
-  inset: 4% -8% 3% 12%;
-  opacity: 0.8;
-}
-
-.orbital__ring {
-  position: absolute;
-  inset: 0;
-  border: 1px solid rgba(var(--brand-rgb), 0.24);
-  border-radius: 50%;
-  transform: rotate(-18deg) scaleY(0.56);
-}
-
-.orbital__ring--two {
-  inset: 9% -4%;
-  opacity: 0.52;
-  transform: rotate(24deg) scaleY(0.72);
-}
-
-.orbital__dot {
-  position: absolute;
-  top: 8%;
-  right: 8%;
-  width: 9px;
-  height: 9px;
-  border-radius: 50%;
-  background: var(--brand);
-  box-shadow: 0 0 24px 7px rgba(var(--brand-rgb), 0.42);
-  animation: dot-orbit 9s linear infinite;
-}
-
 .floating-chip {
   position: absolute;
   z-index: 3;
+  max-width: 260px;
   padding: 5px 10px;
+  overflow: hidden;
   border: 1px solid var(--border);
   border-radius: var(--radius-pill);
   background: var(--surface);
   color: var(--muted);
-  font-size: 0.6rem;
+  font-size: 0.58rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   box-shadow: var(--shadow-sm);
   backdrop-filter: blur(14px);
 }
 
 .floating-chip--one {
-  right: 4%;
-  bottom: 6%;
+  right: 3%;
+  bottom: 5%;
   transform: rotate(4deg);
 }
 
 .floating-chip--two {
-  top: 3%;
-  left: 1%;
+  top: 2%;
+  left: 0;
   color: var(--brand-deep);
   transform: rotate(-5deg);
 }
@@ -361,66 +463,167 @@ const bootLines = [
   color: var(--brand);
 }
 
-.foundation {
-  padding-top: 24px;
-  padding-bottom: 90px;
+.latest {
+  padding-bottom: 32px;
 }
 
-.foundation__heading {
-  display: grid;
-  max-width: 660px;
-  gap: 13px;
+.section-heading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 20px;
+  margin-bottom: 26px;
 }
 
-.foundation__heading h2 {
-  font-size: clamp(1.7rem, 3vw, 2.6rem);
+.section-heading h2 {
+  margin-top: 8px;
+  font-size: clamp(1.8rem, 3.2vw, 2.7rem);
 }
 
-.foundation__heading p:last-child {
-  color: var(--text-soft);
-  line-height: 1.9;
+.section-heading__link {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding-bottom: 5px;
+  color: var(--muted);
+  font-size: 0.62rem;
+  letter-spacing: 0.09em;
 }
 
-.foundation__grid {
+.section-heading__link span {
+  font-size: 1rem;
+  color: var(--brand-deep);
+  transition: transform var(--duration-fast) var(--ease-out);
+}
+
+.section-heading__link:hover span {
+  transform: translateX(4px);
+}
+
+.latest__grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 16px;
-  margin-top: 32px;
+  gap: 17px;
 }
 
-.foundation__card {
-  position: relative;
-  padding: 26px 24px 24px;
+.skeleton-card {
   overflow: hidden;
+}
+
+.skeleton-card__cover {
+  height: 178px;
+  background: linear-gradient(
+    100deg,
+    var(--surface-alt) 20%,
+    rgba(var(--brand-rgb), 0.15) 40%,
+    var(--surface-alt) 60%
+  );
+  background-size: 220% 100%;
+  animation: shimmer 1.7s ease-in-out infinite;
+}
+
+.skeleton-card__body {
+  display: grid;
+  gap: 13px;
+  padding: 20px;
+}
+
+.skeleton-line {
+  height: 10px;
+  border-radius: 5px;
+  background: var(--surface-alt);
+}
+
+.skeleton-line--short {
+  width: 34%;
+}
+
+.skeleton-line--medium {
+  width: 72%;
+}
+
+.state-card {
+  display: grid;
+  justify-items: start;
+  gap: 10px;
+  padding: 34px;
+}
+
+.state-card p:not(.mono) {
+  color: var(--muted);
+  font-size: 0.86rem;
+}
+
+.state-card h3 {
+  font-size: 1.2rem;
+}
+
+.state-card .btn {
+  margin-top: 8px;
+}
+
+.state-card__glyph {
+  color: var(--brand-deep);
+  font-size: 0.68rem;
+}
+
+:root[data-theme='dark'] .state-card__glyph {
+  color: var(--brand);
+}
+
+.portals {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  padding-top: 40px;
+  padding-bottom: 18px;
+}
+
+.portal-card {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 10px;
+  padding: 26px;
+  color: var(--text);
   transition:
     transform var(--duration-base) var(--ease-out),
-    border-color var(--duration-base) ease,
-    box-shadow var(--duration-base) ease;
+    border-color var(--duration-base) ease;
 }
 
-.foundation__card:hover {
-  border-color: rgba(var(--brand-rgb), 0.4);
-  box-shadow: var(--shadow-md);
-  transform: translateY(-4px);
+.portal-card:hover {
+  border-color: rgba(var(--brand-rgb), 0.38);
+  color: var(--text);
+  transform: translateY(-3px);
 }
 
-.foundation__index {
-  display: inline-block;
-  margin-bottom: 28px;
-  color: var(--brand-strong);
-  font-size: 0.66rem;
-  letter-spacing: 0.12em;
-}
-
-.foundation__card h3 {
-  margin-bottom: 9px;
-  font-size: 1.02rem;
-}
-
-.foundation__card p {
+.portal-card__index {
+  grid-column: 1 / -1;
   color: var(--muted);
-  font-size: 0.84rem;
+  font-size: 0.59rem;
+  letter-spacing: 0.1em;
+}
+
+.portal-card__content h3 {
+  margin-top: 19px;
+  font-size: 1.1rem;
+}
+
+.portal-card__content p {
+  max-width: 460px;
+  margin-top: 7px;
+  color: var(--muted);
+  font-size: 0.82rem;
   line-height: 1.8;
+}
+
+.portal-card__arrow {
+  align-self: end;
+  color: var(--brand-deep);
+  font-size: 1.2rem;
+}
+
+:root[data-theme='dark'] .portal-card__arrow {
+  color: var(--brand);
 }
 
 @keyframes terminal-float {
@@ -450,7 +653,16 @@ const bootLines = [
     transform: translate(0, 0) rotate(0);
   }
   to {
-    transform: translate(-210px, 28px) rotate(-360deg);
+    transform: translate(-200px, 26px) rotate(-360deg);
+  }
+}
+
+@keyframes shimmer {
+  from {
+    background-position: 200% 0;
+  }
+  to {
+    background-position: -20% 0;
   }
 }
 
@@ -458,23 +670,24 @@ const bootLines = [
   .hero {
     grid-template-columns: 1fr;
     min-height: auto;
-    padding-top: 64px;
+    padding-top: 58px;
   }
 
   .hero__visual {
-    width: min(100%, 580px);
+    width: min(100%, 570px);
     margin-inline: auto;
-    padding-top: 8px;
+    padding-top: 4px;
+  }
+
+  .latest__grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
-@media (max-width: 700px) {
-  .foundation__grid {
+@media (max-width: 720px) {
+  .latest__grid,
+  .portals {
     grid-template-columns: 1fr;
-  }
-
-  .hero__meta {
-    gap: 18px;
   }
 
   .terminal {
@@ -484,6 +697,35 @@ const bootLines = [
 
   .orbital {
     display: none;
+  }
+
+  .hero__meta {
+    gap: 17px;
+  }
+
+  .section-heading {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 12px;
+  }
+}
+
+@media (max-width: 520px) {
+  .hero {
+    padding-top: 42px;
+  }
+
+  .hero__visual {
+    padding-inline: 0;
+  }
+
+  .floating-chip {
+    display: none;
+  }
+
+  .terminal__body {
+    min-height: 260px;
+    font-size: 0.65rem;
   }
 }
 </style>

@@ -19,6 +19,7 @@ const theme = useThemeStore()
       class="theme-switcher__button"
       :class="{ 'is-active': theme.mode === option.mode }"
       :aria-pressed="theme.mode === option.mode"
+      :aria-label="option.label"
       :title="option.label"
       @click="theme.setMode(option.mode)"
     >

@@ -1,5 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router'
 
+import PublicLayout from '@/layouts/PublicLayout.vue'
 import { beginProgress, completeProgress, failProgress } from '@/lib/progress'
 
 const router = createRouter({
@@ -7,15 +8,45 @@ const router = createRouter({
   routes: [
     {
       path: '/',
-      name: 'home',
-      component: () => import('@/views/HomeView.vue'),
-      meta: { title: '首页' },
-    },
-    {
-      path: '/:pathMatch(.*)*',
-      name: 'not-found',
-      component: () => import('@/views/NotFoundView.vue'),
-      meta: { title: '页面不存在' },
+      component: PublicLayout,
+      children: [
+        {
+          path: '',
+          name: 'home',
+          component: () => import('@/views/HomeView.vue'),
+          meta: { title: '首页' },
+        },
+        {
+          path: 'articles',
+          name: 'articles',
+          component: () => import('@/views/ArticlesView.vue'),
+          meta: { title: '文章' },
+        },
+        {
+          path: 'articles/:slug',
+          name: 'article-detail',
+          component: () => import('@/views/ArticleDetailView.vue'),
+          meta: { title: '文章' },
+        },
+        {
+          path: 'friends',
+          name: 'friends',
+          component: () => import('@/views/FriendsView.vue'),
+          meta: { title: '友链' },
+        },
+        {
+          path: 'about',
+          name: 'about',
+          component: () => import('@/views/AboutView.vue'),
+          meta: { title: '关于' },
+        },
+        {
+          path: ':pathMatch(.*)*',
+          name: 'not-found',
+          component: () => import('@/views/NotFoundView.vue'),
+          meta: { title: '404' },
+        },
+      ],
     },
   ],
   scrollBehavior(_to, _from, savedPosition) {
