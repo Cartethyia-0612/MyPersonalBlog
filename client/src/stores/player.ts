@@ -10,6 +10,7 @@ export type PlayMode = 'list' | 'one' | 'shuffle'
 const MODE_KEY = 'eshi-player-mode'
 const VOLUME_KEY = 'eshi-player-volume'
 const PLAYLIST_KEY = 'eshi-player-playlist'
+const HIDDEN_KEY = 'eshi-player-hidden'
 
 function readMode(): PlayMode {
   if (typeof window === 'undefined') return 'list'
@@ -21,6 +22,11 @@ function readVolume(): number {
   if (typeof window === 'undefined') return 0.72
   const stored = Number(window.localStorage.getItem(VOLUME_KEY))
   return Number.isFinite(stored) && stored >= 0 && stored <= 1 ? stored : 0.72
+}
+
+function readHidden(): boolean {
+  if (typeof window === 'undefined') return false
+  return window.localStorage.getItem(HIDDEN_KEY) === '1'
 }
 
 export const usePlayerStore = defineStore('player', () => {
@@ -36,6 +42,7 @@ export const usePlayerStore = defineStore('player', () => {
   const error = ref('')
   const mode = ref<PlayMode>(readMode())
   const volume = ref(readVolume())
+  const hidden = ref(readHidden())
   const currentTime = ref(0)
   const duration = ref(0)
 
@@ -48,6 +55,7 @@ export const usePlayerStore = defineStore('player', () => {
     () => playlists.value.find((playlist) => playlist.id === currentPlaylistId.value) ?? null,
   )
   const hasPlaylists = computed(() => playlists.value.length > 0)
+  const hasVisiblePlayer = computed(() => hasPlaylists.value && !hidden.value)
   const progress = computed(() =>
     duration.value > 0 ? Math.min(100, (currentTime.value / duration.value) * 100) : 0,
   )
@@ -235,6 +243,23 @@ export const usePlayerStore = defineStore('player', () => {
     panelOpen.value = false
   }
 
+  function persistHidden(): void {
+    if (typeof window !== 'undefined') {
+      window.localStorage.setItem(HIDDEN_KEY, hidden.value ? '1' : '0')
+    }
+  }
+
+  function hidePlayer(): void {
+    hidden.value = true
+    panelOpen.value = false
+    persistHidden()
+  }
+
+  function showPlayer(): void {
+    hidden.value = false
+    persistHidden()
+  }
+
   async function loadPlaylists(): Promise<void> {
     if (loadingPlaylists.value) return
     loadingPlaylists.value = true
@@ -286,6 +311,7 @@ export const usePlayerStore = defineStore('player', () => {
     loadingTracks,
     initialized,
     panelOpen,
+    hidden,
     error,
     mode,
     volume,
@@ -294,6 +320,7 @@ export const usePlayerStore = defineStore('player', () => {
     currentTrack,
     currentPlaylist,
     hasPlaylists,
+    hasVisiblePlayer,
     progress,
     modeLabel,
     init,
@@ -310,5 +337,7 @@ export const usePlayerStore = defineStore('player', () => {
     seekRatio,
     togglePanel,
     closePanel,
+    hidePlayer,
+    showPlayer,
   }
 })

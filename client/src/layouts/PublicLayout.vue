@@ -2,6 +2,7 @@
 import { computed, onMounted } from 'vue'
 import { RouterView } from 'vue-router'
 
+import BackToTop from '@/components/BackToTop.vue'
 import MusicPlayer from '@/components/MusicPlayer.vue'
 import SiteFooter from '@/components/SiteFooter.vue'
 import SiteHeader from '@/components/SiteHeader.vue'
@@ -11,7 +12,7 @@ import { useSiteStore } from '@/stores/site'
 const siteStore = useSiteStore()
 const playerStore = usePlayerStore()
 
-const hasPlayer = computed(() => playerStore.hasPlaylists)
+const hasPlayer = computed(() => playerStore.hasVisiblePlayer)
 
 onMounted(() => {
   void siteStore.load()
@@ -35,11 +36,13 @@ onMounted(() => {
     </main>
     <SiteFooter />
     <MusicPlayer />
+    <BackToTop />
   </div>
 </template>
 
 <style scoped>
 .public-layout {
+  --backtop-bottom: 26px;
   position: relative;
   display: flex;
   min-height: 100vh;
@@ -47,6 +50,7 @@ onMounted(() => {
 }
 
 .public-layout.has-player {
+  --backtop-bottom: 96px;
   padding-bottom: 82px;
 }
 
@@ -86,6 +90,7 @@ onMounted(() => {
 
 @media (max-width: 680px) {
   .public-layout.has-player {
+    --backtop-bottom: 112px;
     padding-bottom: 102px;
   }
 }

@@ -57,33 +57,305 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div v-if="player.hasPlaylists" class="music-player" :class="{ 'is-expanded': player.panelOpen }">
-    <Transition name="music-panel">
-      <section v-if="player.panelOpen" class="music-panel" aria-label="播放列表">
-        <div class="music-panel__inner">
-          <header class="music-panel__head">
-            <div>
-              <p class="mono">PLAYLIST_QUEUE</p>
-              <h2>{{ player.currentPlaylist?.name || '固定歌单' }}</h2>
-            </div>
-            <div class="music-panel__actions">
-              <label class="music-panel__select-label">
-                <span class="sr-only">切换歌单</span>
-                <select :value="player.currentPlaylistId ?? ''" @change="onPlaylistChange">
-                  <option
-                    v-for="playlist in player.playlists"
-                    :key="playlist.id"
-                    :value="playlist.id"
+  <div v-if="player.hasPlaylists" class="music-root">
+    <Transition name="player-hide">
+      <div v-if="!player.hidden" class="music-player" :class="{ 'is-expanded': player.panelOpen }">
+        <Transition name="music-panel">
+          <section v-if="player.panelOpen" class="music-panel" aria-label="播放列表">
+            <div class="music-panel__inner">
+              <header class="music-panel__head">
+                <div>
+                  <p class="mono">PLAYLIST_QUEUE</p>
+                  <h2>{{ player.currentPlaylist?.name || '固定歌单' }}</h2>
+                </div>
+                <div class="music-panel__actions">
+                  <label class="music-panel__select-label">
+                    <span class="sr-only">切换歌单</span>
+                    <select :value="player.currentPlaylistId ?? ''" @change="onPlaylistChange">
+                      <option
+                        v-for="playlist in player.playlists"
+                        :key="playlist.id"
+                        :value="playlist.id"
+                      >
+                        {{ playlist.name }}
+                      </option>
+                    </select>
+                  </label>
+                  <button
+                    type="button"
+                    class="icon-btn"
+                    aria-label="收起播放列表"
+                    @click="player.closePanel"
                   >
-                    {{ playlist.name }}
-                  </option>
-                </select>
-              </label>
+                    <svg
+                      width="16"
+                      height="16"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="1.8"
+                      stroke-linecap="round"
+                      aria-hidden="true"
+                    >
+                      <path d="m6 9 6 6 6-6" />
+                    </svg>
+                  </button>
+                </div>
+              </header>
+
+              <div v-if="player.error" class="music-panel__error">
+                <span>{{ player.error }}</span>
+                <button type="button" class="btn btn--sm" @click="player.retry">重试</button>
+              </div>
+
+              <div v-if="player.loadingTracks" class="music-panel__loading mono">
+                <span class="music-loading-dot" /> LOADING_TRACKS…
+              </div>
+
+              <div v-else-if="player.tracks.length === 0" class="music-panel__empty">
+                <span class="mono">[ NO_TRACKS ]</span>
+                <p>这个歌单暂时没有可播放的曲目。</p>
+                <button type="button" class="btn btn--sm" @click="player.retry">重新加载</button>
+              </div>
+
+              <ol v-else class="track-list">
+                <li v-for="(track, index) in player.tracks" :key="`${track.id}-${index}`">
+                  <button
+                    type="button"
+                    class="track-row"
+                    :class="{ 'is-current': index === player.currentIndex }"
+                    @click="selectTrack(index)"
+                  >
+                    <span class="track-row__index mono">
+                      <span
+                        v-if="index === player.currentIndex && player.isPlaying"
+                        class="mini-equalizer"
+                      >
+                        <i /><i /><i />
+                      </span>
+                      <span v-else>{{ String(index + 1).padStart(2, '0') }}</span>
+                    </span>
+                    <span class="track-row__copy">
+                      <strong>{{ track.name }}</strong>
+                      <small>{{ track.artist }}</small>
+                    </span>
+                    <span v-if="index === player.currentIndex" class="track-row__now mono"
+                      >NOW</span
+                    >
+                    <span class="track-row__play" aria-hidden="true">
+                      <svg
+                        width="14"
+                        height="14"
+                        viewBox="0 0 24 24"
+                        fill="currentColor"
+                        aria-hidden="true"
+                      >
+                        <path d="M8 5v14l11-7z" />
+                      </svg>
+                    </span>
+                  </button>
+                </li>
+              </ol>
+            </div>
+          </section>
+        </Transition>
+
+        <div class="music-bar">
+          <div class="music-bar__inner">
+            <div class="now-playing">
+              <div class="now-playing__cover">
+                <img
+                  v-if="player.currentTrack?.cover && !coverFailed"
+                  :src="player.currentTrack.cover"
+                  alt=""
+                  loading="lazy"
+                  @error="coverFailed = true"
+                />
+                <BrandMark v-else :size="42" />
+                <span v-if="player.isPlaying" class="cover-equalizer" aria-hidden="true">
+                  <i /><i /><i /><i />
+                </span>
+              </div>
+              <div class="now-playing__copy">
+                <span class="mono">NOW_PLAYING</span>
+                <strong>{{ player.currentTrack?.name || '等待选择曲目' }}</strong>
+                <small>
+                  {{ player.currentTrack?.artist || player.currentPlaylist?.name || '固定歌单' }}
+                </small>
+              </div>
+            </div>
+
+            <div class="music-controls">
               <button
                 type="button"
-                class="icon-btn"
-                aria-label="收起播放列表"
-                @click="player.closePanel"
+                class="music-controls__side"
+                aria-label="上一首"
+                :disabled="player.tracks.length === 0"
+                @click="player.previous"
+              >
+                <svg
+                  width="17"
+                  height="17"
+                  viewBox="0 0 24 24"
+                  fill="currentColor"
+                  aria-hidden="true"
+                >
+                  <path d="M6 5h2v14H6zM20 5v14L9 12z" />
+                </svg>
+              </button>
+              <button
+                type="button"
+                class="music-controls__play"
+                :aria-label="player.isPlaying ? '暂停' : '播放'"
+                :disabled="player.loadingTracks"
+                @click="player.toggle"
+              >
+                <span v-if="player.loadingTracks" class="music-spinner" aria-hidden="true" />
+                <svg
+                  v-else-if="player.isPlaying"
+                  width="19"
+                  height="19"
+                  viewBox="0 0 24 24"
+                  fill="currentColor"
+                  aria-hidden="true"
+                >
+                  <path d="M7 5h4v14H7zM13 5h4v14h-4z" />
+                </svg>
+                <svg
+                  v-else
+                  width="19"
+                  height="19"
+                  viewBox="0 0 24 24"
+                  fill="currentColor"
+                  aria-hidden="true"
+                >
+                  <path d="M8 5v14l11-7z" />
+                </svg>
+              </button>
+              <button
+                type="button"
+                class="music-controls__side"
+                aria-label="下一首"
+                :disabled="player.tracks.length === 0"
+                @click="player.next(player.isPlaying)"
+              >
+                <svg
+                  width="17"
+                  height="17"
+                  viewBox="0 0 24 24"
+                  fill="currentColor"
+                  aria-hidden="true"
+                >
+                  <path d="M16 5h2v14h-2zM4 5v14l11-7z" />
+                </svg>
+              </button>
+            </div>
+
+            <div class="music-progress" :class="{ 'is-empty': durationPercent === 0 }">
+              <span class="mono">{{ formatTime(player.currentTime) }}</span>
+              <input
+                type="range"
+                min="0"
+                max="100"
+                step="0.1"
+                :value="progressPercent"
+                :style="{ '--progress': `${progressPercent}%` }"
+                aria-label="播放进度"
+                @input="onSeek"
+              />
+              <span class="mono">{{ formatTime(player.duration) }}</span>
+            </div>
+
+            <div class="music-extra">
+              <button
+                type="button"
+                class="music-mode"
+                :title="modeTitle()"
+                :aria-label="modeTitle()"
+                @click="player.cycleMode"
+              >
+                <svg
+                  v-if="player.mode === 'list'"
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.8"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  aria-hidden="true"
+                >
+                  <path d="M17 3l4 4-4 4M21 7H7a4 4 0 0 0-4 4v1" />
+                  <path d="M7 21l-4-4 4-4M3 17h14a4 4 0 0 0 4-4v-1" />
+                </svg>
+                <svg
+                  v-else-if="player.mode === 'one'"
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.8"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  aria-hidden="true"
+                >
+                  <path d="M17 3l4 4-4 4M21 7H7a4 4 0 0 0-4 4v1" />
+                  <path d="M7 21l-4-4 4-4M3 17h14a4 4 0 0 0 4-4v-1" />
+                  <path d="M12 10v4" />
+                </svg>
+                <svg
+                  v-else
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.8"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  aria-hidden="true"
+                >
+                  <path d="M3 7h4l10 10h4M21 7h-4L7 17H3" />
+                  <path d="m18 14 3 3-3 3M6 7 3 4" />
+                </svg>
+                <span>{{ player.modeLabel }}</span>
+              </button>
+
+              <div class="music-volume">
+                <svg
+                  width="15"
+                  height="15"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.8"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  aria-hidden="true"
+                >
+                  <path d="M11 5 6 9H3v6h3l5 4z" />
+                  <path d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13" />
+                </svg>
+                <input
+                  type="range"
+                  min="0"
+                  max="100"
+                  step="1"
+                  :value="volumePercent"
+                  :style="{ '--volume': `${volumePercent}%` }"
+                  aria-label="音量"
+                  @input="onVolume"
+                />
+              </div>
+
+              <button
+                type="button"
+                class="music-queue-toggle"
+                :aria-expanded="player.panelOpen"
+                aria-label="打开或收起播放列表"
+                @click="player.togglePanel"
               >
                 <svg
                   width="16"
@@ -95,271 +367,88 @@ onBeforeUnmount(() => {
                   stroke-linecap="round"
                   aria-hidden="true"
                 >
-                  <path d="m6 9 6 6 6-6" />
+                  <path d="M4 6h16M4 12h16M4 18h10" />
+                  <path d="m17 16 3 3-3 3" />
+                </svg>
+                <span class="mono">{{ player.tracks.length }}</span>
+              </button>
+
+              <button
+                type="button"
+                class="music-hide"
+                aria-label="隐藏音乐播放器，音乐继续播放"
+                title="隐藏播放器（音乐继续）"
+                @click="player.hidePlayer"
+              >
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.8"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  aria-hidden="true"
+                >
+                  <path d="m5 9 7 7 7-7" />
                 </svg>
               </button>
             </div>
-          </header>
-
-          <div v-if="player.error" class="music-panel__error">
-            <span>{{ player.error }}</span>
-            <button type="button" class="btn btn--sm" @click="player.retry">重试</button>
           </div>
-
-          <div v-if="player.loadingTracks" class="music-panel__loading mono">
-            <span class="music-loading-dot" /> LOADING_TRACKS…
-          </div>
-
-          <div v-else-if="player.tracks.length === 0" class="music-panel__empty">
-            <span class="mono">[ NO_TRACKS ]</span>
-            <p>这个歌单暂时没有可播放的曲目。</p>
-            <button type="button" class="btn btn--sm" @click="player.retry">重新加载</button>
-          </div>
-
-          <ol v-else class="track-list">
-            <li v-for="(track, index) in player.tracks" :key="`${track.id}-${index}`">
-              <button
-                type="button"
-                class="track-row"
-                :class="{ 'is-current': index === player.currentIndex }"
-                @click="selectTrack(index)"
-              >
-                <span class="track-row__index mono">
-                  <span
-                    v-if="index === player.currentIndex && player.isPlaying"
-                    class="mini-equalizer"
-                  >
-                    <i /><i /><i />
-                  </span>
-                  <span v-else>{{ String(index + 1).padStart(2, '0') }}</span>
-                </span>
-                <span class="track-row__copy">
-                  <strong>{{ track.name }}</strong>
-                  <small>{{ track.artist }}</small>
-                </span>
-                <span v-if="index === player.currentIndex" class="track-row__now mono">NOW</span>
-                <span class="track-row__play" aria-hidden="true">
-                  <svg
-                    width="14"
-                    height="14"
-                    viewBox="0 0 24 24"
-                    fill="currentColor"
-                    aria-hidden="true"
-                  >
-                    <path d="M8 5v14l11-7z" />
-                  </svg>
-                </span>
-              </button>
-            </li>
-          </ol>
-        </div>
-      </section>
-    </Transition>
-
-    <div class="music-bar">
-      <div class="music-bar__inner">
-        <div class="now-playing">
-          <div class="now-playing__cover">
-            <img
-              v-if="player.currentTrack?.cover && !coverFailed"
-              :src="player.currentTrack.cover"
-              alt=""
-              loading="lazy"
-              @error="coverFailed = true"
-            />
-            <BrandMark v-else :size="42" />
-            <span v-if="player.isPlaying" class="cover-equalizer" aria-hidden="true">
-              <i /><i /><i /><i />
-            </span>
-          </div>
-          <div class="now-playing__copy">
-            <span class="mono">NOW_PLAYING</span>
-            <strong>{{ player.currentTrack?.name || '等待选择曲目' }}</strong>
-            <small>
-              {{ player.currentTrack?.artist || player.currentPlaylist?.name || '固定歌单' }}
-            </small>
-          </div>
-        </div>
-
-        <div class="music-controls">
-          <button
-            type="button"
-            class="music-controls__side"
-            aria-label="上一首"
-            :disabled="player.tracks.length === 0"
-            @click="player.previous"
-          >
-            <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-              <path d="M6 5h2v14H6zM20 5v14L9 12z" />
-            </svg>
-          </button>
-          <button
-            type="button"
-            class="music-controls__play"
-            :aria-label="player.isPlaying ? '暂停' : '播放'"
-            :disabled="player.loadingTracks"
-            @click="player.toggle"
-          >
-            <span v-if="player.loadingTracks" class="music-spinner" aria-hidden="true" />
-            <svg
-              v-else-if="player.isPlaying"
-              width="19"
-              height="19"
-              viewBox="0 0 24 24"
-              fill="currentColor"
-              aria-hidden="true"
-            >
-              <path d="M7 5h4v14H7zM13 5h4v14h-4z" />
-            </svg>
-            <svg
-              v-else
-              width="19"
-              height="19"
-              viewBox="0 0 24 24"
-              fill="currentColor"
-              aria-hidden="true"
-            >
-              <path d="M8 5v14l11-7z" />
-            </svg>
-          </button>
-          <button
-            type="button"
-            class="music-controls__side"
-            aria-label="下一首"
-            :disabled="player.tracks.length === 0"
-            @click="player.next(player.isPlaying)"
-          >
-            <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-              <path d="M16 5h2v14h-2zM4 5v14l11-7z" />
-            </svg>
-          </button>
-        </div>
-
-        <div class="music-progress" :class="{ 'is-empty': durationPercent === 0 }">
-          <span class="mono">{{ formatTime(player.currentTime) }}</span>
-          <input
-            type="range"
-            min="0"
-            max="100"
-            step="0.1"
-            :value="progressPercent"
-            :style="{ '--progress': `${progressPercent}%` }"
-            aria-label="播放进度"
-            @input="onSeek"
-          />
-          <span class="mono">{{ formatTime(player.duration) }}</span>
-        </div>
-
-        <div class="music-extra">
-          <button
-            type="button"
-            class="music-mode"
-            :title="modeTitle()"
-            :aria-label="modeTitle()"
-            @click="player.cycleMode"
-          >
-            <svg
-              v-if="player.mode === 'list'"
-              width="16"
-              height="16"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="1.8"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              aria-hidden="true"
-            >
-              <path d="M17 3l4 4-4 4M21 7H7a4 4 0 0 0-4 4v1" />
-              <path d="M7 21l-4-4 4-4M3 17h14a4 4 0 0 0 4-4v-1" />
-            </svg>
-            <svg
-              v-else-if="player.mode === 'one'"
-              width="16"
-              height="16"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="1.8"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              aria-hidden="true"
-            >
-              <path d="M17 3l4 4-4 4M21 7H7a4 4 0 0 0-4 4v1" />
-              <path d="M7 21l-4-4 4-4M3 17h14a4 4 0 0 0 4-4v-1" />
-              <path d="M12 10v4" />
-            </svg>
-            <svg
-              v-else
-              width="16"
-              height="16"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="1.8"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              aria-hidden="true"
-            >
-              <path d="M3 7h4l10 10h4M21 7h-4L7 17H3" />
-              <path d="m18 14 3 3-3 3M6 7 3 4" />
-            </svg>
-            <span>{{ player.modeLabel }}</span>
-          </button>
-
-          <div class="music-volume">
-            <svg
-              width="15"
-              height="15"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="1.8"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              aria-hidden="true"
-            >
-              <path d="M11 5 6 9H3v6h3l5 4z" />
-              <path d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13" />
-            </svg>
-            <input
-              type="range"
-              min="0"
-              max="100"
-              step="1"
-              :value="volumePercent"
-              :style="{ '--volume': `${volumePercent}%` }"
-              aria-label="音量"
-              @input="onVolume"
-            />
-          </div>
-
-          <button
-            type="button"
-            class="music-queue-toggle"
-            :aria-expanded="player.panelOpen"
-            aria-label="打开或收起播放列表"
-            @click="player.togglePanel"
-          >
-            <svg
-              width="16"
-              height="16"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="1.8"
-              stroke-linecap="round"
-              aria-hidden="true"
-            >
-              <path d="M4 6h16M4 12h16M4 18h10" />
-              <path d="m17 16 3 3-3 3" />
-            </svg>
-            <span class="mono">{{ player.tracks.length }}</span>
-          </button>
+          <div class="music-bar__line" aria-hidden="true" />
         </div>
       </div>
-      <div class="music-bar__line" aria-hidden="true" />
-    </div>
+    </Transition>
+
+    <Transition name="music-tab">
+      <button
+        v-if="player.hidden"
+        type="button"
+        class="music-restore"
+        aria-label="显示音乐播放器"
+        title="显示音乐播放器"
+        @click="player.showPlayer"
+      >
+        <span class="music-restore__icon" aria-hidden="true">
+          <svg
+            width="15"
+            height="15"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.8"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path d="M9 18V5l11-2v12" />
+            <circle cx="6" cy="18" r="3" />
+            <circle cx="17" cy="15" r="3" />
+          </svg>
+        </span>
+        <span class="music-restore__copy">
+          <small class="mono">MUSIC</small>
+          <strong>{{ player.currentTrack?.name || '音乐播放器已隐藏' }}</strong>
+        </span>
+        <span v-if="player.isPlaying" class="music-restore__eq" aria-hidden="true">
+          <i /><i /><i />
+        </span>
+        <svg
+          class="music-restore__chevron"
+          width="14"
+          height="14"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.8"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          aria-hidden="true"
+        >
+          <path d="m5 15 7-7 7 7" />
+        </svg>
+      </button>
+    </Transition>
   </div>
 </template>
 
@@ -669,6 +758,148 @@ input[type='range']::-moz-range-thumb {
   font-size: 0.52rem;
 }
 
+.music-hide {
+  display: grid;
+  width: 27px;
+  height: 27px;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--muted);
+  transition:
+    color var(--duration-fast) ease,
+    background-color var(--duration-fast) ease;
+}
+
+.music-hide:hover {
+  background: rgba(var(--brand-rgb), 0.11);
+  color: var(--text);
+}
+
+.player-hide-enter-active,
+.player-hide-leave-active {
+  transition:
+    opacity var(--duration-base) var(--ease-out),
+    transform var(--duration-base) var(--ease-out);
+}
+
+.player-hide-enter-from,
+.player-hide-leave-to {
+  opacity: 0;
+  transform: translateY(24px);
+}
+
+.music-tab-enter-active,
+.music-tab-leave-active {
+  transition:
+    opacity var(--duration-fast) ease,
+    transform var(--duration-base) var(--ease-out);
+}
+
+.music-tab-enter-from,
+.music-tab-leave-to {
+  opacity: 0;
+  transform: translateY(12px);
+}
+
+.music-restore {
+  position: fixed;
+  bottom: 18px;
+  left: 20px;
+  z-index: 70;
+  display: flex;
+  max-width: min(300px, calc(100vw - 130px));
+  align-items: center;
+  gap: 9px;
+  padding: 8px 11px 8px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: var(--header-bg);
+  color: var(--text);
+  box-shadow: var(--shadow-sm);
+  backdrop-filter: blur(20px) saturate(1.2);
+  transition:
+    border-color var(--duration-fast) ease,
+    transform var(--duration-fast) var(--ease-out);
+}
+
+.music-restore:hover {
+  border-color: rgba(var(--brand-rgb), 0.45);
+  transform: translateY(-2px);
+}
+
+.music-restore__icon {
+  display: grid;
+  width: 30px;
+  height: 30px;
+  flex: none;
+  place-items: center;
+  border-radius: 50%;
+  background: rgba(var(--brand-rgb), 0.14);
+  color: var(--brand-deep);
+}
+
+:root[data-theme='dark'] .music-restore__icon {
+  color: var(--brand);
+}
+
+.music-restore__copy {
+  display: grid;
+  min-width: 0;
+  gap: 1px;
+}
+
+.music-restore__copy small {
+  color: var(--brand-deep);
+  font-size: 0.46rem;
+  letter-spacing: 0.1em;
+}
+
+:root[data-theme='dark'] .music-restore__copy small {
+  color: var(--brand);
+}
+
+.music-restore__copy strong {
+  overflow: hidden;
+  max-width: 170px;
+  color: var(--text-soft);
+  font-size: 0.66rem;
+  font-weight: 550;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.music-restore__eq {
+  display: flex;
+  height: 12px;
+  flex: none;
+  align-items: flex-end;
+  gap: 2px;
+}
+
+.music-restore__eq i {
+  width: 2px;
+  height: 100%;
+  border-radius: 2px;
+  background: var(--brand);
+  transform-origin: bottom;
+  animation: equalizer 800ms ease-in-out infinite alternate;
+}
+
+.music-restore__eq i:nth-child(2) {
+  animation-delay: 180ms;
+}
+
+.music-restore__eq i:nth-child(3) {
+  animation-delay: 90ms;
+}
+
+.music-restore__chevron {
+  flex: none;
+  color: var(--muted);
+}
+
 .music-volume {
   display: flex;
   width: 92px;
@@ -956,9 +1187,16 @@ input[type='range']::-moz-range-thumb {
   }
 
   .music-progress {
-    grid-column: 1 / -1;
+    grid-column: 1;
     grid-row: 2;
     padding: 0 2px 2px;
+  }
+
+  .music-extra {
+    grid-column: 2;
+    grid-row: 2;
+    justify-content: flex-end;
+    gap: 4px;
   }
 
   .music-progress > .mono {
@@ -986,8 +1224,20 @@ input[type='range']::-moz-range-thumb {
     font-size: 0.56rem;
   }
 
-  .music-extra {
-    gap: 4px;
+  .music-hide {
+    width: 24px;
+    height: 24px;
+  }
+
+  .music-restore {
+    bottom: 13px;
+    left: 13px;
+    max-width: min(260px, calc(100vw - 90px));
+    padding: 7px 9px 7px 7px;
+  }
+
+  .music-restore__copy strong {
+    max-width: 120px;
   }
 
   .music-mode span {
@@ -1036,6 +1286,7 @@ input[type='range']::-moz-range-thumb {
 @media (prefers-reduced-motion: reduce) {
   .cover-equalizer i,
   .mini-equalizer i,
+  .music-restore__eq i,
   .music-spinner,
   .music-loading-dot {
     animation: none;
