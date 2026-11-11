@@ -7,6 +7,12 @@ import { decryptText, encryptText } from '../lib/crypto'
 import { AppError } from '../lib/errors'
 import { parseBody } from '../lib/http'
 import { requireAuth } from '../middleware/auth'
+import { getArticleStats } from '../services/articles'
+import { getFriendStats } from '../services/friends'
+import { createAdminArticlesRouter } from './adminArticles'
+import { createAdminFriendsRouter } from './adminFriends'
+import { createAdminSettingsRouter } from './adminSettings'
+import { createAdminUploadsRouter } from './adminUploads'
 import {
   buildTotpQrDataUrl,
   buildTotpUri,
@@ -58,6 +64,38 @@ export function createAdminRouter(db: Db, config: AppConfig): Router {
       hasPendingTotpSecret: Boolean(user.totp_secret_enc) && !user.totp_enabled,
     })
   })
+
+  router.get('/overview', (req, res) => {
+    const user = getCurrentUserOrThrow(db, req.currentUser?.id)
+    const articleStats = getArticleStats(db)
+    const friendStats = getFriendStats(db)
+    const playlistCount = (
+      db.prepare('SELECT COUNT(*) AS count FROM music_playlists').get() as { count: number }
+    ).count
+
+    const recentArticles = db
+      .prepare(
+        `SELECT id, title, slug, status, updated_at FROM articles
+         ORDER BY updated_at DESC, id DESC LIMIT 5`,
+      )
+      .all()
+
+    res.json({
+      articles: articleStats,
+      friends: friendStats,
+      playlists: { total: playlistCount },
+      security: {
+        username: user.username,
+        totpEnabled: Boolean(user.totp_enabled),
+      },
+      recentArticles,
+    })
+  })
+
+  router.use('/articles', createAdminArticlesRouter(db))
+  router.use('/friends', createAdminFriendsRouter(db))
+  router.use(createAdminSettingsRouter(db))
+  router.use('/uploads', createAdminUploadsRouter(config))
 
   router.post('/security/password', async (req, res) => {
     const { currentPassword, newPassword } = parseBody(changePasswordSchema, req)

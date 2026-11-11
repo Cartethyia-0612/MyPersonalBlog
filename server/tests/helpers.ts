@@ -66,3 +66,17 @@ export async function createAgentContext(): Promise<{
     context,
   }
 }
+
+export async function loginAsAdmin(
+  agent: ReturnType<typeof request.agent>,
+  csrfToken: string,
+): Promise<string> {
+  const response = await agent
+    .post('/api/auth/login')
+    .set('X-CSRF-Token', csrfToken)
+    .send({ username: ADMIN_USERNAME, password: ADMIN_PASSWORD })
+  if (response.status !== 200) {
+    throw new Error(`Admin login failed: ${response.status} ${JSON.stringify(response.body)}`)
+  }
+  return response.body.csrfToken as string
+}

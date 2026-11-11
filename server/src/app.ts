@@ -12,6 +12,7 @@ import { createEnsureCsrfMiddleware, createRequireCsrfMiddleware } from './middl
 import { createSessionMiddleware } from './middleware/session'
 import { createAdminRouter } from './routes/admin'
 import { createAuthRouter } from './routes/auth'
+import { createPublicRouter } from './routes/public'
 
 export interface AppDependencies {
   config: AppConfig
@@ -54,25 +55,29 @@ export function createApp({ config, db }: AppDependencies): Express {
 
   app.use('/api/auth', createAuthRouter(db, config))
   app.use('/api/admin', createAdminRouter(db, config))
+  app.use('/api', createPublicRouter(db))
 
   app.use('/api', (_req, res) => {
     res.status(404).json({ error: { code: 'NOT_FOUND', message: '接口不存在' } })
   })
 
-  // Serve uploads and the built SPA when present. API routes are registered
-  // above so a missing API path can never fall back to HTML.
+  // Uploaded assets are available in both dev and production, independent of
+  // whether a built client exists yet.
+  fs.mkdirSync(config.uploadDir, { recursive: true })
+  app.use(
+    '/uploads',
+    express.static(config.uploadDir, {
+      fallthrough: false,
+      maxAge: config.isProduction ? '7d' : 0,
+      setHeaders(res) {
+        res.setHeader('X-Content-Type-Options', 'nosniff')
+      },
+    }),
+  )
+
+  // Serve the built SPA when present. API routes are registered above so a
+  // missing API path can never fall back to HTML.
   if (fs.existsSync(path.join(config.clientDistDir, 'index.html'))) {
-    fs.mkdirSync(config.uploadDir, { recursive: true })
-    app.use(
-      '/uploads',
-      express.static(config.uploadDir, {
-        fallthrough: false,
-        maxAge: config.isProduction ? '7d' : 0,
-        setHeaders(res) {
-          res.setHeader('X-Content-Type-Options', 'nosniff')
-        },
-      }),
-    )
     app.use(express.static(config.clientDistDir, { index: false, maxAge: '1h' }))
     app.get(/.*/, (_req, res) => {
       res.sendFile(path.join(config.clientDistDir, 'index.html'))
@@ -111,6 +116,49 @@ export function createApp({ config, db }: AppDependencies): Express {
     ) {
       res.status(413).json({
         error: { code: 'PAYLOAD_TOO_LARGE', message: '提交的内容过大' },
+      })
+      return
+    }
+
+    if (
+      error instanceof SyntaxError &&
+      typeof error === 'object' &&
+      'status' in error &&
+      error.status === 400
+    ) {
+      res.status(400).json({
+        error: { code: 'INVALID_JSON', message: '请求体不是合法的 JSON' },
+      })
+      return
+    }
+
+    if (typeof error === 'object' && error !== null && 'status' in error && error.status === 404) {
+      res.status(404).json({
+        error: { code: 'NOT_FOUND', message: '资源不存在' },
+      })
+      return
+    }
+
+    if (
+      typeof error === 'object' &&
+      error !== null &&
+      'code' in error &&
+      error.code === 'LIMIT_FILE_SIZE'
+    ) {
+      res.status(413).json({
+        error: { code: 'FILE_TOO_LARGE', message: '图片不能超过 2MB' },
+      })
+      return
+    }
+
+    if (
+      typeof error === 'object' &&
+      error !== null &&
+      'name' in error &&
+      error.name === 'MulterError'
+    ) {
+      res.status(400).json({
+        error: { code: 'UPLOAD_ERROR', message: '上传请求不合法' },
       })
       return
     }
