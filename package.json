@@ -1,0 +1,33 @@
+{
+  "name": "eshi-tech-notes",
+  "version": "0.1.0",
+  "private": true,
+  "description": "饿师傅的技术札记 — a Tianyi-blue geek personal blog built with Vue 3, Node.js and SQLite.",
+  "packageManager": "pnpm@11.28.5",
+  "engines": {
+    "node": ">=22.12.0",
+    "pnpm": ">=10.0.0"
+  },
+  "scripts": {
+    "dev": "concurrently -k -n server,client -c cyan,blue \"pnpm --filter @eshi/server dev\" \"pnpm --filter @eshi/client dev\"",
+    "build": "pnpm --filter @eshi/client build && pnpm --filter @eshi/server build",
+    "start": "pnpm --filter @eshi/server start",
+    "setup": "pnpm --filter @eshi/server setup",
+    "typecheck": "pnpm -r typecheck",
+    "test": "pnpm -r test",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.30.0",
+    "concurrently": "^9.2.0",
+    "eslint": "^9.30.0",
+    "eslint-config-prettier": "^10.1.0",
+    "eslint-plugin-vue": "^10.3.0",
+    "globals": "^16.3.0",
+    "prettier": "^3.6.0",
+    "typescript": "^5.9.0",
+    "typescript-eslint": "^8.35.0"
+  }
+}
