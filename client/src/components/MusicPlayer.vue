@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 
 import MusicNoteIcon from '@/components/MusicNoteIcon.vue'
 import { usePlayerStore } from '@/stores/player'
@@ -7,7 +7,6 @@ import { usePlayerStore } from '@/stores/player'
 const player = usePlayerStore()
 const coverFailed = ref(false)
 const mobileVolumeOpen = ref(false)
-const mobileVolumeLeft = ref<number | null>(null)
 const mobileVolumeControl = ref<HTMLElement | null>(null)
 const mobileVolumePopover = ref<HTMLElement | null>(null)
 
@@ -37,41 +36,7 @@ function onVolume(event: Event): void {
 }
 
 function toggleMobileVolume(): void {
-  if (mobileVolumeOpen.value) {
-    closeMobileVolume()
-    return
-  }
-  void openMobileVolume()
-}
-
-async function openMobileVolume(): Promise<void> {
-  mobileVolumeOpen.value = true
-  await nextTick()
-  alignMobileVolume()
-}
-
-function closeMobileVolume(): void {
-  mobileVolumeOpen.value = false
-  mobileVolumeLeft.value = null
-}
-
-function alignMobileVolume(): void {
-  const control = mobileVolumeControl.value
-  const popover = mobileVolumePopover.value
-  const button = control?.querySelector<HTMLElement>('.mobile-volume-button')
-  const bar = popover?.closest<HTMLElement>('.music-bar')
-  if (!button || !popover || !bar) return
-
-  const barRect = bar.getBoundingClientRect()
-  const buttonRect = button.getBoundingClientRect()
-  const safeArea = 24
-  const width = Math.min(popover.offsetWidth, barRect.width - safeArea * 2)
-  if (width <= 0) return
-
-  const target = buttonRect.left + buttonRect.width / 2 - barRect.left
-  const minCenter = safeArea + width / 2
-  const maxCenter = barRect.width - safeArea - width / 2
-  mobileVolumeLeft.value = Math.min(Math.max(target, minCenter), maxCenter)
+  mobileVolumeOpen.value = !mobileVolumeOpen.value
 }
 
 function handleOutsidePointer(event: PointerEvent): void {
@@ -80,19 +45,15 @@ function handleOutsidePointer(event: PointerEvent): void {
   if (!(target instanceof Node)) return
   if (mobileVolumeControl.value?.contains(target)) return
   if (mobileVolumePopover.value?.contains(target)) return
-  closeMobileVolume()
+  mobileVolumeOpen.value = false
 }
 
 function handleKeydown(event: KeyboardEvent): void {
-  if (event.key === 'Escape') closeMobileVolume()
+  if (event.key === 'Escape') mobileVolumeOpen.value = false
 }
 
 function handleResize(): void {
-  if (window.innerWidth > 980) {
-    closeMobileVolume()
-    return
-  }
-  if (mobileVolumeOpen.value) window.requestAnimationFrame(alignMobileVolume)
+  if (window.innerWidth > 980) mobileVolumeOpen.value = false
 }
 
 function selectTrack(index: number): void {
@@ -113,7 +74,7 @@ watch(
 watch(
   () => player.hidden,
   (hidden) => {
-    if (hidden) closeMobileVolume()
+    if (hidden) mobileVolumeOpen.value = false
   },
 )
 
@@ -513,7 +474,6 @@ onBeforeUnmount(() => {
               id="music-mobile-volume"
               ref="mobileVolumePopover"
               class="mobile-volume-popover"
-              :style="mobileVolumeLeft === null ? undefined : { left: `${mobileVolumeLeft}px` }"
               role="group"
               aria-label="音量调节"
             >
@@ -1091,11 +1051,11 @@ input[type='range']::-moz-range-thumb {
 
 .mobile-volume-popover {
   position: absolute;
-  bottom: calc(100% + 14px);
+  bottom: calc(100% + 12px);
   left: 50%;
   z-index: 5;
   display: flex;
-  width: min(180px, calc(100vw - 48px));
+  width: min(190px, calc(100vw - 24px));
   align-items: center;
   gap: 9px;
   padding: 10px 12px;
@@ -1470,7 +1430,7 @@ input[type='range']::-moz-range-thumb {
   }
 
   .mobile-volume-popover {
-    width: min(164px, calc(100vw - 48px));
+    width: min(178px, calc(100vw - 24px));
     padding: 9px 11px;
   }
   .music-restore {
