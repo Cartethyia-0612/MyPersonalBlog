@@ -1051,11 +1051,11 @@ input[type='range']::-moz-range-thumb {
 
 .mobile-volume-popover {
   position: absolute;
-  right: 82px;
   bottom: calc(100% + 12px);
+  left: 50%;
   z-index: 5;
   display: flex;
-  width: 190px;
+  width: min(190px, calc(100vw - 24px));
   align-items: center;
   gap: 9px;
   padding: 10px 12px;
@@ -1063,6 +1063,7 @@ input[type='range']::-moz-range-thumb {
   border-radius: var(--radius-sm);
   background: var(--surface-solid);
   box-shadow: var(--shadow-md);
+  transform: translateX(-50%);
 }
 
 .mobile-volume-popover__value {
@@ -1093,7 +1094,13 @@ input[type='range']::-moz-range-thumb {
 .volume-pop-enter-from,
 .volume-pop-leave-to {
   opacity: 0;
-  transform: translateY(6px);
+  transform: translate(-50%, 6px);
+}
+
+@media (min-width: 981px) {
+  .mobile-volume-popover {
+    display: none;
+  }
 }
 
 .music-panel {
@@ -1423,10 +1430,9 @@ input[type='range']::-moz-range-thumb {
   }
 
   .mobile-volume-popover {
-    width: 178px;
+    width: min(178px, calc(100vw - 24px));
     padding: 9px 11px;
   }
-
   .music-restore {
     bottom: 13px;
     left: 13px;
