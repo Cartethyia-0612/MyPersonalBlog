@@ -15,11 +15,18 @@ const dashOffset = computed(() => circumference * (1 - progress.value / 100))
 
 function updateProgress(): void {
   if (typeof window === 'undefined') return
-  const scrollTop = window.scrollY || document.documentElement.scrollTop || 0
+  const scrollTop = Math.max(0, window.scrollY || document.documentElement.scrollTop || 0)
   const scrollable = document.documentElement.scrollHeight - window.innerHeight
-  const nextProgress = scrollable > 0 ? (scrollTop / scrollable) * 100 : 0
-  progress.value = Math.min(100, Math.max(0, Math.round(nextProgress)))
-  visible.value = scrollTop > 140
+
+  if (scrollTop <= 0) {
+    progress.value = 0
+    visible.value = false
+    return
+  }
+
+  const nextProgress = scrollable > 0 ? Math.round((scrollTop / scrollable) * 100) : 0
+  progress.value = Math.min(100, Math.max(1, nextProgress))
+  visible.value = true
 }
 
 function scheduleUpdate(): void {

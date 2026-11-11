@@ -54,7 +54,9 @@ describe('BackToTop', () => {
       writable: true,
       value: (callback: FrameRequestCallback) => {
         callback(0)
-        return 1
+        // A real rAF assigns its id before running; returning 0 here mirrors
+        // the "frame cleared" state after this synchronous test callback.
+        return 0
       },
     })
     Object.defineProperty(window, 'cancelAnimationFrame', {
@@ -107,6 +109,24 @@ describe('BackToTop', () => {
 
     await button.trigger('click')
     expect(scrollToMock).toHaveBeenCalledWith({ top: 0, behavior: 'smooth' })
+    wrapper.unmount()
+  })
+
+  it('hides again once the page is back at the top', async () => {
+    setViewport(0, 800, 2000)
+    const wrapper = mount(BackToTop, { global: { plugins: [router] } })
+    await wrapper.vm.$nextTick()
+
+    setViewport(500, 800, 2000)
+    window.dispatchEvent(new Event('scroll'))
+    await wrapper.vm.$nextTick()
+    expect(wrapper.find('.reading-backtop').exists()).toBe(true)
+
+    setViewport(0, 800, 2000)
+    window.dispatchEvent(new Event('scroll'))
+    await wrapper.vm.$nextTick()
+    expect(wrapper.find('.reading-backtop').exists()).toBe(false)
+
     wrapper.unmount()
   })
 })
