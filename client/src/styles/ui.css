@@ -51,6 +51,12 @@
   background: rgba(220, 80, 80, 0.08);
 }
 
+:root[data-theme='dark'] .btn--danger {
+  border-color: rgba(255, 120, 120, 0.3);
+  color: #ff9a9a;
+  background: rgba(220, 80, 80, 0.11);
+}
+
 .btn--sm {
   min-height: 34px;
   padding: 6px 13px;

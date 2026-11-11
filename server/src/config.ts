@@ -27,6 +27,7 @@ function normalizeOrigin(value: string): string {
 }
 
 const siteUrl = normalizeOrigin(process.env.SITE_URL || 'http://localhost:5173')
+const port = readPort(process.env.PORT)
 const rawSecret = process.env.APP_SECRET?.trim() || ''
 const nodeEnv = isProduction
   ? 'production'
@@ -62,6 +63,9 @@ const allowedOrigins = new Set(
 if (!isProduction) {
   allowedOrigins.add('http://localhost:5173')
   allowedOrigins.add('http://127.0.0.1:5173')
+  // Also allow the Express preview of the built SPA (`pnpm build && pnpm start`).
+  allowedOrigins.add(`http://localhost:${port}`)
+  allowedOrigins.add(`http://127.0.0.1:${port}`)
 }
 
 export interface AppConfig {
@@ -91,7 +95,7 @@ const uploadDir = process.env.UPLOAD_DIR
 export const config: AppConfig = {
   nodeEnv,
   isProduction,
-  port: readPort(process.env.PORT),
+  port,
   siteUrl,
   appSecret,
   cookieSecure: readBoolean(process.env.COOKIE_SECURE, isProduction),

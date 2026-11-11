@@ -79,6 +79,27 @@ watch(
       <div class="site-header__actions">
         <span class="online-badge mono"><i />ONLINE</span>
         <ThemeToggle />
+        <RouterLink
+          class="icon-btn admin-entry"
+          to="/admin"
+          aria-label="进入管理后台"
+          title="管理后台"
+        >
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.8"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+          >
+            <path d="M12 3 5 6v5c0 4.6 2.9 8.4 7 10 4.1-1.6 7-5.4 7-10V6l-7-3Z" />
+            <path d="M9.5 12l1.7 1.7L15 10" />
+          </svg>
+        </RouterLink>
         <button
           type="button"
           class="menu-toggle icon-btn"

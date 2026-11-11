@@ -1,11 +1,74 @@
 import { createRouter, createWebHistory } from 'vue-router'
 
+import AdminLayout from '@/layouts/AdminLayout.vue'
 import PublicLayout from '@/layouts/PublicLayout.vue'
 import { beginProgress, completeProgress, failProgress } from '@/lib/progress'
+import { useAuthStore } from '@/stores/auth'
 
 const router = createRouter({
   history: createWebHistory(),
   routes: [
+    {
+      path: '/admin/login',
+      name: 'admin-login',
+      component: () => import('@/views/admin/AdminLoginView.vue'),
+      meta: { title: '后台登录' },
+    },
+    {
+      path: '/admin',
+      component: AdminLayout,
+      meta: { requiresAuth: true },
+      children: [
+        {
+          path: '',
+          name: 'admin-dashboard',
+          component: () => import('@/views/admin/AdminDashboardView.vue'),
+          meta: { title: '仪表盘', adminTitle: '仪表盘' },
+        },
+        {
+          path: 'articles',
+          name: 'admin-articles',
+          component: () => import('@/views/admin/AdminArticlesView.vue'),
+          meta: { title: '文章管理', adminTitle: '文章管理' },
+        },
+        {
+          path: 'articles/new',
+          name: 'admin-article-new',
+          component: () => import('@/views/admin/AdminArticleEditorView.vue'),
+          meta: { title: '新建文章', adminTitle: '新建文章' },
+        },
+        {
+          path: 'articles/:id/edit',
+          name: 'admin-article-edit',
+          component: () => import('@/views/admin/AdminArticleEditorView.vue'),
+          meta: { title: '编辑文章', adminTitle: '编辑文章' },
+        },
+        {
+          path: 'about',
+          name: 'admin-about',
+          component: () => import('@/views/admin/AdminAboutView.vue'),
+          meta: { title: '关于页', adminTitle: '关于页' },
+        },
+        {
+          path: 'friends',
+          name: 'admin-friends',
+          component: () => import('@/views/admin/AdminFriendsView.vue'),
+          meta: { title: '友链管理', adminTitle: '友链管理' },
+        },
+        {
+          path: 'settings',
+          name: 'admin-settings',
+          component: () => import('@/views/admin/AdminSettingsView.vue'),
+          meta: { title: '站点设置', adminTitle: '站点设置' },
+        },
+        {
+          path: 'security',
+          name: 'admin-security',
+          component: () => import('@/views/admin/AdminSecurityView.vue'),
+          meta: { title: '登录与安全', adminTitle: '登录与安全' },
+        },
+      ],
+    },
     {
       path: '/',
       component: PublicLayout,
@@ -55,8 +118,25 @@ const router = createRouter({
   },
 })
 
-router.beforeEach(() => {
+router.beforeEach(async (to) => {
   beginProgress()
+  const authStore = useAuthStore()
+
+  if (to.meta.requiresAuth) {
+    if (!authStore.initialized) await authStore.fetchSession()
+    if (!authStore.user) {
+      return {
+        name: 'admin-login',
+        query: { redirect: to.fullPath },
+      }
+    }
+  }
+
+  if (to.name === 'admin-login') {
+    if (!authStore.initialized) await authStore.fetchSession(true)
+    if (authStore.user) return { name: 'admin-dashboard' }
+  }
+
   return true
 })
 

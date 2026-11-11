@@ -22,6 +22,7 @@
   --text-soft: #36566e;
   --muted: #6a879b;
   --inverse: #f4fcff;
+  --link: #1177a3;
 
   /* lines & shadows */
   --border: rgba(18, 84, 120, 0.14);
@@ -68,6 +69,7 @@
   --text-soft: #b3d2e2;
   --muted: #87a4b7;
   --inverse: #04111d;
+  --link: #66ccff;
 
   --border: rgba(133, 216, 255, 0.14);
   --border-strong: rgba(133, 216, 255, 0.3);
