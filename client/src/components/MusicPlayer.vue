@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 
-import BrandMark from '@/components/BrandMark.vue'
+import MusicNoteIcon from '@/components/MusicNoteIcon.vue'
 import { usePlayerStore } from '@/stores/player'
 
 const player = usePlayerStore()
@@ -41,7 +41,7 @@ function modeTitle(): string {
 }
 
 watch(
-  () => player.currentTrack?.cover,
+  () => [player.currentTrack?.id, player.currentTrack?.cover],
   () => {
     coverFailed.value = false
   },
@@ -171,7 +171,9 @@ onBeforeUnmount(() => {
                   loading="lazy"
                   @error="coverFailed = true"
                 />
-                <BrandMark v-else :size="42" />
+                <span v-else class="now-playing__fallback" aria-hidden="true">
+                  <MusicNoteIcon :size="20" />
+                </span>
                 <span v-if="player.isPlaying" class="cover-equalizer" aria-hidden="true">
                   <i /><i /><i /><i />
                 </span>
@@ -411,20 +413,14 @@ onBeforeUnmount(() => {
         @click="player.showPlayer"
       >
         <span class="music-restore__icon" aria-hidden="true">
-          <svg
-            width="15"
-            height="15"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="1.8"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          >
-            <path d="M9 18V5l11-2v12" />
-            <circle cx="6" cy="18" r="3" />
-            <circle cx="17" cy="15" r="3" />
-          </svg>
+          <img
+            v-if="player.currentTrack?.cover && !coverFailed"
+            :src="player.currentTrack.cover"
+            alt=""
+            loading="lazy"
+            @error="coverFailed = true"
+          />
+          <MusicNoteIcon v-else :size="15" />
         </span>
         <span class="music-restore__copy">
           <small class="mono">MUSIC</small>
@@ -511,6 +507,18 @@ onBeforeUnmount(() => {
   width: 44px;
   height: 44px;
   object-fit: cover;
+}
+
+.now-playing__fallback {
+  display: grid;
+  width: 100%;
+  height: 100%;
+  place-items: center;
+  color: var(--brand-deep);
+}
+
+:root[data-theme='dark'] .now-playing__fallback {
+  color: var(--brand);
 }
 
 .now-playing__copy {
@@ -835,9 +843,16 @@ input[type='range']::-moz-range-thumb {
   height: 30px;
   flex: none;
   place-items: center;
+  overflow: hidden;
   border-radius: 50%;
   background: rgba(var(--brand-rgb), 0.14);
   color: var(--brand-deep);
+}
+
+.music-restore__icon img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 :root[data-theme='dark'] .music-restore__icon {
