@@ -103,18 +103,18 @@ TRUST_PROXY=0
 初始化管理员（交互式，不提供默认密码）：
 
 ```bash
-pnpm setup
+pnpm run setup
 ```
 
 也可以使用环境变量非交互初始化（请先把唯一强密码存入密码管理器，不要写进命令历史或仓库）：
 
 ```bash
 read -rsp '管理员密码（至少 10 位）: ' ADMIN_PASSWORD; echo
-ADMIN_USERNAME=admin ADMIN_PASSWORD="$ADMIN_PASSWORD" pnpm setup
+ADMIN_USERNAME=admin ADMIN_PASSWORD="$ADMIN_PASSWORD" pnpm run setup
 unset ADMIN_PASSWORD
 ```
 
-> 推荐的交互式方式 `pnpm setup` 会隐藏密码输入；任何情况下都不要使用文档示例或可猜测的密码。
+> 推荐的交互式方式 `pnpm run setup` 会隐藏密码输入；任何情况下都不要使用文档示例或可猜测的密码。
 
 ### 3. 启动
 
@@ -167,7 +167,7 @@ HOST=127.0.0.1
 | `DB_PATH`                           | 否       | SQLite 路径，默认 `data/blog.db`                                                             |
 | `UPLOAD_DIR`                        | 否       | 上传目录，默认 `uploads/`                                                                    |
 | `ALLOWED_ORIGINS`                   | 否       | 额外允许的写请求 Origin，逗号分隔；`SITE_URL` 始终允许                                       |
-| `ADMIN_USERNAME` / `ADMIN_PASSWORD` | 否       | 仅用于非交互式 `pnpm setup`，不要写入仓库                                                    |
+| `ADMIN_USERNAME` / `ADMIN_PASSWORD` | 否       | 仅用于非交互式 `pnpm run setup`，不要写入仓库                                                |
 
 > `.env`、`data/`、`uploads/`、`backups/` 均已被 Git 忽略，不会进入仓库。
 
@@ -182,7 +182,7 @@ HOST=127.0.0.1
 | `pnpm test`                         | 全部前后端测试                                                |
 | `pnpm lint`                         | ESLint                                                        |
 | `pnpm format` / `pnpm format:check` | Prettier                                                      |
-| `pnpm setup`                        | 创建管理员（交互式）                                          |
+| `pnpm run setup`                    | 创建管理员（交互式）                                          |
 | `pnpm seed:demo`                    | 写入可删除的演示文章 / 友链 / 歌单                            |
 | `pnpm backup`                       | 使用 SQLite 在线备份 API 备份数据库和上传文件                 |
 | `pnpm check:no-comments`            | 无评论功能自动守卫                                            |

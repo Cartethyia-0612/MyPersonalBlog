@@ -71,7 +71,7 @@ TRUST_PROXY=0
 创建管理员：
 
 ```bash
-pnpm setup
+pnpm run setup
 ```
 
 可选演示内容：
@@ -179,13 +179,15 @@ ALLOWED_ORIGINS=
 目录在 2.1 已归属 `eshi`，直接初始化；如果权限异常，先退出当前 shell（`exit`），由管理员执行 `sudo chown -R eshi:eshi /var/lib/eshi-blog`，再重新进入 `sudo -u eshi -H bash`。
 
 ```bash
-pnpm setup
+pnpm run setup
 
 # 非交互式（密码先在密码管理器生成，避免写入历史/仓库）：
 read -rsp '管理员密码（至少 10 位）: ' ADMIN_PASSWORD; echo
-ADMIN_USERNAME=admin ADMIN_PASSWORD="$ADMIN_PASSWORD" pnpm setup
+ADMIN_USERNAME=admin ADMIN_PASSWORD="$ADMIN_PASSWORD" pnpm run setup
 unset ADMIN_PASSWORD
 ```
+
+> 项目内部使用 `pnpm --filter @eshi/server run setup`。如果从旧版部署目录执行 `pnpm setup` 报 `Unknown option: 'recursive'`，请先同步到 v1.1.8+，或临时执行 `pnpm --filter @eshi/server run setup`。
 
 建议立即在后台 `/admin/security` 开启 TOTP。可选：
 
@@ -307,20 +309,20 @@ sudo chown -R 1000:1000 data uploads backups
 
 ```bash
 docker compose build
-docker compose run --rm blog pnpm setup
+docker compose run --rm blog pnpm run setup
 docker compose up -d
 docker compose ps
 docker compose logs -f --tail=100
 ```
 
-`pnpm setup` 会交互式提示输入管理员用户名与密码（密码至少 10 位）。若必须非交互：
+`pnpm run setup` 会交互式提示输入管理员用户名与密码（密码至少 10 位）。若必须非交互：
 
 ```bash
 read -rsp '管理员密码（至少 10 位）: ' ADMIN_PASSWORD; echo
 docker compose run --rm \
   -e ADMIN_USERNAME=admin \
   -e ADMIN_PASSWORD="$ADMIN_PASSWORD" \
-  blog pnpm setup
+  blog pnpm run setup
 unset ADMIN_PASSWORD
 ```
 
@@ -399,8 +401,8 @@ Railway、Render、Fly.io 等平台可以运行，但必须满足：
 - 注入 `APP_SECRET`、`SITE_URL`、`NODE_ENV=production`、`COOKIE_SECURE=true`、`TRUST_PROXY=1`；
 - 平台容器内设置 `HOST=0.0.0.0`，否则 Node 只监听回环地址，平台健康检查/路由无法访问；
 - 不把 SQLite 放在临时文件系统；无状态 serverless 部署不适用；
-- 首次启动后通过平台终端执行 `pnpm setup`；
-- `pnpm setup` / `pnpm backup` 使用 `tsx` 等 devDependency。若平台在构建/初始化阶段裁剪生产依赖，`pnpm setup` 会失败；请为构建和初始化阶段安装 devDependencies，或直接使用官方 Dockerfile。
+- 首次启动后通过平台终端执行 `pnpm run setup`；
+- `pnpm run setup` / `pnpm backup` 使用 `tsx` 等 devDependency。若平台在构建/初始化阶段裁剪生产依赖，`pnpm run setup` 会失败；请为构建和初始化阶段安装 devDependencies，或直接使用官方 Dockerfile。
 
 平台重启可能造成短暂停服；个人博客通常可以接受。需要高可用时应迁移数据库并拆分上传存储。
 
@@ -517,22 +519,23 @@ SEO 首屏元信息由 Node 在返回 `index.html` 时注入，客户端路由�
 
 ## 8. 故障排查
 
-| 现象                       | 排查方向                                                                                                                                                |
-| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 登录/保存返回 403 CSRF     | 检查 `SITE_URL` / `ALLOWED_ORIGINS` 是否包含浏览器实际 Origin；确认请求带 `X-CSRF-Token`。`TRUST_PROXY` 只影响客户端 IP 与限流，不决定 CSRF Origin 校验 |
-| 登录后仍然未登录           | HTTPS 下 `COOKIE_SECURE=true`；检查浏览器是否阻止第三方/安全 Cookie；确认没有多个域名混用                                                               |
-| 登录 429                   | 登录失败限流生效：密码窗口 15 分钟，TOTP 窗口 10 分钟；等待窗口结束或检查数据库 `login_attempts`                                                        |
-| TOTP 永远验证失败          | 服务器和手机时间需同步；检查 `APP_SECRET` 是否被更换                                                                                                    |
-| 数据库 `SQLITE_BUSY`       | 确认只有一个实例在写；不要在容器副本间共享 DB；检查磁盘权限                                                                                             |
-| 上传失败                   | 检查 `UPLOAD_DIR` 写权限、反向代理 `client_max_body_size`、图片是否 ≤2MB 且为支持的格式（不允许 SVG）                                                   |
-| 播放器封面/音频被 CSP 拦截 | 当前 CSP 允许 `https:` 图片与媒体；HTTP 音频在 HTTPS 页面会被浏览器拦截；可配置自建 Meting API 使用 HTTPS                                               |
-| 播放列表失败               | 后台检查 Meting API 地址、歌单是否公开、网络连通性；后台「预览」可先验证                                                                                |
-| sitemap 含 localhost       | 在 `.env` 与后台站点设置中改为真实域名，重启/刷新                                                                                                       |
-| 推送按钮禁用               | 域名不是公网地址或未配置 Key/Token                                                                                                                      |
-| IndexNow Key 文件 404      | 确认 Key 已保存且访问地址是 `SITE_URL/<key>.txt`；反向代理不能拦截 `.txt`                                                                               |
-| 页面加载后没有内容         | 查看 `/api/health`、Nginx 日志、浏览器控制台；检查前端构建产物是否存在                                                                                  |
-| 静态资源 404               | 重新执行 `pnpm build`；确认 `client/dist` 存在且 Node 有读取权限                                                                                        |
-| 修改样式后前台未更新       | 重新构建并部署；浏览器强刷；检查 Nginx/缓存策略                                                                                                         |
+| 现象                                          | 排查方向                                                                                                                                                     |
+| --------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 登录/保存返回 403 CSRF                        | 检查 `SITE_URL` / `ALLOWED_ORIGINS` 是否包含浏览器实际 Origin；确认请求带 `X-CSRF-Token`。`TRUST_PROXY` 只影响客户端 IP 与限流，不决定 CSRF Origin 校验      |
+| 登录后仍然未登录                              | HTTPS 下 `COOKIE_SECURE=true`；检查浏览器是否阻止第三方/安全 Cookie；确认没有多个域名混用                                                                    |
+| 登录 429                                      | 登录失败限流生效：密码窗口 15 分钟，TOTP 窗口 10 分钟；等待窗口结束或检查数据库 `login_attempts`                                                             |
+| TOTP 永远验证失败                             | 服务器和手机时间需同步；检查 `APP_SECRET` 是否被更换                                                                                                         |
+| 数据库 `SQLITE_BUSY`                          | 确认只有一个实例在写；不要在容器副本间共享 DB；检查磁盘权限                                                                                                  |
+| 上传失败                                      | 检查 `UPLOAD_DIR` 写权限、反向代理 `client_max_body_size`、图片是否 ≤2MB 且为支持的格式（不允许 SVG）                                                        |
+| 播放器封面/音频被 CSP 拦截                    | 当前 CSP 允许 `https:` 图片与媒体；HTTP 音频在 HTTPS 页面会被浏览器拦截；可配置自建 Meting API 使用 HTTPS                                                    |
+| 播放列表失败                                  | 后台检查 Meting API 地址、歌单是否公开、网络连通性；后台「预览」可先验证                                                                                     |
+| sitemap 含 localhost                          | 在 `.env` 与后台站点设置中改为真实域名，重启/刷新                                                                                                            |
+| 推送按钮禁用                                  | 域名不是公网地址或未配置 Key/Token                                                                                                                           |
+| IndexNow Key 文件 404                         | 确认 Key 已保存且访问地址是 `SITE_URL/<key>.txt`；反向代理不能拦截 `.txt`                                                                                    |
+| 页面加载后没有内容                            | 查看 `/api/health`、Nginx 日志、浏览器控制台；检查前端构建产物是否存在                                                                                       |
+| 静态资源 404                                  | 重新执行 `pnpm build`；确认 `client/dist` 存在且 Node 有读取权限                                                                                             |
+| 修改样式后前台未更新                          | 重新构建并部署；浏览器强刷；检查 Nginx/缓存策略                                                                                                              |
+| `pnpm setup` 报 `Unknown option: 'recursive'` | 旧版根脚本把 pnpm 内置 `setup` 命令当作项目脚本解析。更新到 v1.1.8+，或临时执行 `pnpm --filter @eshi/server run setup`（也可 `cd server && pnpm run setup`） |
 
 ## 9. 最终验收命令
 

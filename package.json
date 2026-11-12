@@ -1,6 +1,6 @@
 {
   "name": "eshi-tech-notes",
-  "version": "1.1.7",
+  "version": "1.1.8",
   "private": true,
   "type": "module",
   "description": "饿师傅的技术札记 — a Tianyi-blue geek personal blog built with Vue 3, Node.js and SQLite.",
@@ -10,19 +10,19 @@
     "pnpm": ">=11.0.0"
   },
   "scripts": {
-    "dev": "concurrently -k -n server,client -c cyan,blue \"pnpm --filter @eshi/server dev\" \"pnpm --filter @eshi/client dev\"",
-    "build": "pnpm --filter @eshi/client build && pnpm --filter @eshi/server build",
-    "start": "pnpm --filter @eshi/server start",
-    "setup": "pnpm --filter @eshi/server setup",
-    "seed:demo": "pnpm --filter @eshi/server seed:demo",
-    "backup": "pnpm --filter @eshi/server backup",
+    "dev": "concurrently -k -n server,client -c cyan,blue \"pnpm --filter @eshi/server run dev\" \"pnpm --filter @eshi/client run dev\"",
+    "build": "pnpm --filter @eshi/client run build && pnpm --filter @eshi/server run build",
+    "start": "pnpm --filter @eshi/server run start",
+    "setup": "pnpm --filter @eshi/server run setup",
+    "seed:demo": "pnpm --filter @eshi/server run seed:demo",
+    "backup": "pnpm --filter @eshi/server run backup",
     "check:no-comments": "node scripts/check-no-comments.mjs",
-    "typecheck": "pnpm -r typecheck",
-    "test": "pnpm -r test",
+    "typecheck": "pnpm -r run typecheck",
+    "test": "pnpm -r run test",
     "lint": "eslint .",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "verify": "pnpm typecheck && pnpm test && pnpm lint && pnpm format:check && pnpm check:no-comments && pnpm build"
+    "verify": "pnpm run typecheck && pnpm run test && pnpm run lint && pnpm run format:check && pnpm run check:no-comments && pnpm run build"
   },
   "devDependencies": {
     "@eslint/js": "^9.30.0",
