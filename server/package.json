@@ -1,6 +1,6 @@
 {
   "name": "@eshi/server",
-  "version": "1.1.10",
+  "version": "1.2.0",
   "private": true,
   "description": "Express + SQLite API for 饿师傅的技术札记",
   "main": "dist/index.js",

@@ -48,6 +48,8 @@ describe('SiteFooter', () => {
     expect(wrapper.text()).toContain('萌备20260001号')
     expect(wrapper.text()).toContain('自定义页脚文本')
     expect(wrapper.text()).toContain('© 2026 测试版权')
+    expect(wrapper.text()).toContain('VERSION vtest-build')
+    expect(wrapper.text()).toContain('BUILD')
     expect(wrapper.find('a[href="https://beian.mps.gov.cn/"]').exists()).toBe(true)
     expect(wrapper.find('a[href="https://moe.example.com/record/20260001"]').exists()).toBe(true)
   })

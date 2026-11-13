@@ -7,6 +7,22 @@ import { useSiteStore } from '@/stores/site'
 
 const siteStore = useSiteStore()
 const year = new Date().getFullYear()
+const appVersion = typeof __APP_VERSION__ === 'string' ? __APP_VERSION__ : 'dev'
+const buildTimeIso = typeof __BUILD_TIME__ === 'string' ? __BUILD_TIME__ : ''
+
+const buildTime = computed(() => {
+  if (!buildTimeIso) return 'DEV'
+  const date = new Date(buildTimeIso)
+  if (Number.isNaN(date.getTime())) return 'UNKNOWN'
+  return new Intl.DateTimeFormat('zh-CN', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).format(date)
+})
 
 const copyright = computed(
   () => siteStore.footer.copyright || `© ${year} ${siteStore.site.name} · All rights reserved.`,
@@ -49,6 +65,10 @@ const navLinks = [
 
         <div class="footer-column footer-column--meta">
           <p class="footer-column__title mono">BUILD_INFO</p>
+          <span class="footer-build-meta mono">VERSION v{{ appVersion }}</span>
+          <span class="footer-build-meta mono" :title="buildTimeIso || undefined"
+            >BUILD {{ buildTime }}</span
+          >
           <span>Vue 3 + Node.js + SQLite</span>
           <span>天依蓝 · TIANYI BLUE #66CCFF</span>
           <span>NO_COMMENTS · 只有文字与代码</span>
@@ -187,6 +207,12 @@ const navLinks = [
 
 .footer-column span {
   line-height: 1.6;
+}
+
+.footer-column .footer-build-meta {
+  color: var(--text-soft);
+  font-size: 0.58rem;
+  letter-spacing: 0.03em;
 }
 
 .footer-bottom {

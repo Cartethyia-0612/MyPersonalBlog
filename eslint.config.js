@@ -33,6 +33,8 @@ export default tseslint.config(
       globals: {
         ...globals.browser,
         ...globals.node,
+        __APP_VERSION__: 'readonly',
+        __BUILD_TIME__: 'readonly',
       },
     },
     rules: {
