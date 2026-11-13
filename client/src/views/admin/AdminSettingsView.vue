@@ -21,6 +21,7 @@ const form = reactive<AdminSettings>({
     policeIcp: '',
     policeUrl: '',
     virtualRecord: '',
+    virtualRecordUrl: '',
     customText: '',
     copyright: '',
   },
@@ -273,6 +274,15 @@ useSeo(() => ({
                   <input v-model="form.footer.copyright" class="input" placeholder="© 2026 …" />
                 </label>
               </div>
+              <label class="admin-label">
+                虚拟备案链接（可选）
+                <input
+                  v-model="form.footer.virtualRecordUrl"
+                  class="input"
+                  type="url"
+                  placeholder="https://…"
+                />
+              </label>
               <label class="admin-label">
                 其他自定义页脚文本
                 <textarea

@@ -68,6 +68,7 @@ export interface AdminSettings {
     policeIcp: string
     policeUrl: string
     virtualRecord: string
+    virtualRecordUrl: string
     customText: string
     copyright: string
   }

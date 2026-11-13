@@ -34,6 +34,7 @@ const footerPatchSchema = z
     policeIcp: z.string().trim().max(80).optional(),
     policeUrl: optionalHttpUrlSchema.optional(),
     virtualRecord: z.string().trim().max(100).optional(),
+    virtualRecordUrl: optionalHttpUrlSchema.optional(),
     customText: z.string().trim().max(500).optional(),
     copyright: z.string().trim().max(200).optional(),
   })

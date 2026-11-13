@@ -14,6 +14,7 @@ export interface FooterSettings {
   policeIcp: string
   policeUrl: string
   virtualRecord: string
+  virtualRecordUrl: string
   customText: string
   copyright: string
 }
@@ -41,6 +42,7 @@ export const DEFAULT_FOOTER_SETTINGS: FooterSettings = {
   policeIcp: '',
   policeUrl: '',
   virtualRecord: '',
+  virtualRecordUrl: '',
   customText: '',
   copyright: '',
 }

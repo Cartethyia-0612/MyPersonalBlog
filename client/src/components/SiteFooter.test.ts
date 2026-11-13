@@ -32,6 +32,7 @@ describe('SiteFooter', () => {
       policeIcp: '苏公网安备32050000000001号',
       policeUrl: 'https://beian.mps.gov.cn/',
       virtualRecord: '萌备20260001号',
+      virtualRecordUrl: 'https://moe.example.com/record/20260001',
       customText: '自定义页脚文本',
       copyright: '© 2026 测试版权',
     }
@@ -48,6 +49,7 @@ describe('SiteFooter', () => {
     expect(wrapper.text()).toContain('自定义页脚文本')
     expect(wrapper.text()).toContain('© 2026 测试版权')
     expect(wrapper.find('a[href="https://beian.mps.gov.cn/"]').exists()).toBe(true)
+    expect(wrapper.find('a[href="https://moe.example.com/record/20260001"]').exists()).toBe(true)
   })
 
   it('does not render empty compliance placeholders', () => {
@@ -59,6 +61,7 @@ describe('SiteFooter', () => {
       policeIcp: '',
       policeUrl: '',
       virtualRecord: '',
+      virtualRecordUrl: '',
       customText: '',
       copyright: '',
     }

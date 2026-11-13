@@ -41,6 +41,7 @@ describe('public content APIs', () => {
     expect(site.body.footer).toHaveProperty('icp')
     expect(site.body.footer).toHaveProperty('policeIcp')
     expect(site.body.footer).toHaveProperty('virtualRecord')
+    expect(site.body.footer).toHaveProperty('virtualRecordUrl')
     expect(site.body.footer).toHaveProperty('customText')
 
     const articles = await request(testContext.app).get('/api/articles').expect(200)
@@ -250,6 +251,7 @@ describe('settings and about APIs', () => {
           icp: '苏ICP备00000000号',
           policeIcp: '苏公网安备00000000号',
           virtualRecord: '萌备20260001号',
+          virtualRecordUrl: 'https://moe.example.com/record/20260001',
           customText: '本站无评论区',
         },
         music: {
@@ -264,6 +266,7 @@ describe('settings and about APIs', () => {
     const publicSite = await request(testContext.app).get('/api/site')
     expect(publicSite.body.site.name).toBe('饿师傅的新札记')
     expect(publicSite.body.footer.virtualRecord).toBe('萌备20260001号')
+    expect(publicSite.body.footer.virtualRecordUrl).toBe('https://moe.example.com/record/20260001')
 
     const aboutUpdate = await agent
       .put('/api/admin/about')
@@ -283,6 +286,12 @@ describe('settings and about APIs', () => {
       .set('X-CSRF-Token', csrfToken)
       .send({ site: { siteUrl: 'javascript:alert(1)' } })
     expect(invalid.status).toBe(400)
+
+    const invalidVirtualRecordUrl = await agent
+      .put('/api/admin/settings')
+      .set('X-CSRF-Token', csrfToken)
+      .send({ footer: { virtualRecordUrl: 'javascript:alert(1)' } })
+    expect(invalidVirtualRecordUrl.status).toBe(400)
 
     const unauthenticated = await request(testContext.app).get('/api/admin/settings')
     expect(unauthenticated.status).toBe(401)

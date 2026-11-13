@@ -140,59 +140,61 @@ onBeforeUnmount(() => {
                 </div>
               </header>
 
-              <div v-if="player.error" class="music-panel__error">
-                <span>{{ player.error }}</span>
-                <button type="button" class="btn btn--sm" @click="player.retry">重试</button>
-              </div>
+              <div class="music-panel__body">
+                <div v-if="player.error" class="music-panel__error">
+                  <span>{{ player.error }}</span>
+                  <button type="button" class="btn btn--sm" @click="player.retry">重试</button>
+                </div>
 
-              <div v-if="player.loadingTracks" class="music-panel__loading mono">
-                <span class="music-loading-dot" /> LOADING_TRACKS…
-              </div>
+                <div v-if="player.loadingTracks" class="music-panel__loading mono">
+                  <span class="music-loading-dot" /> LOADING_TRACKS…
+                </div>
 
-              <div v-else-if="player.tracks.length === 0" class="music-panel__empty">
-                <span class="mono">[ NO_TRACKS ]</span>
-                <p>这个歌单暂时没有可播放的曲目。</p>
-                <button type="button" class="btn btn--sm" @click="player.retry">重新加载</button>
-              </div>
+                <div v-else-if="player.tracks.length === 0" class="music-panel__empty">
+                  <span class="mono">[ NO_TRACKS ]</span>
+                  <p>这个歌单暂时没有可播放的曲目。</p>
+                  <button type="button" class="btn btn--sm" @click="player.retry">重新加载</button>
+                </div>
 
-              <ol v-else class="track-list">
-                <li v-for="(track, index) in player.tracks" :key="`${track.id}-${index}`">
-                  <button
-                    type="button"
-                    class="track-row"
-                    :class="{ 'is-current': index === player.currentIndex }"
-                    @click="selectTrack(index)"
-                  >
-                    <span class="track-row__index mono">
-                      <span
-                        v-if="index === player.currentIndex && player.isPlaying"
-                        class="mini-equalizer"
-                      >
-                        <i /><i /><i />
-                      </span>
-                      <span v-else>{{ String(index + 1).padStart(2, '0') }}</span>
-                    </span>
-                    <span class="track-row__copy">
-                      <strong>{{ track.name }}</strong>
-                      <small>{{ track.artist }}</small>
-                    </span>
-                    <span v-if="index === player.currentIndex" class="track-row__now mono"
-                      >NOW</span
+                <ol v-else class="track-list">
+                  <li v-for="(track, index) in player.tracks" :key="`${track.id}-${index}`">
+                    <button
+                      type="button"
+                      class="track-row"
+                      :class="{ 'is-current': index === player.currentIndex }"
+                      @click="selectTrack(index)"
                     >
-                    <span class="track-row__play" aria-hidden="true">
-                      <svg
-                        width="14"
-                        height="14"
-                        viewBox="0 0 24 24"
-                        fill="currentColor"
-                        aria-hidden="true"
+                      <span class="track-row__index mono">
+                        <span
+                          v-if="index === player.currentIndex && player.isPlaying"
+                          class="mini-equalizer"
+                        >
+                          <i /><i /><i />
+                        </span>
+                        <span v-else>{{ String(index + 1).padStart(2, '0') }}</span>
+                      </span>
+                      <span class="track-row__copy">
+                        <strong>{{ track.name }}</strong>
+                        <small>{{ track.artist }}</small>
+                      </span>
+                      <span v-if="index === player.currentIndex" class="track-row__now mono"
+                        >NOW</span
                       >
-                        <path d="M8 5v14l11-7z" />
-                      </svg>
-                    </span>
-                  </button>
-                </li>
-              </ol>
+                      <span class="track-row__play" aria-hidden="true">
+                        <svg
+                          width="14"
+                          height="14"
+                          viewBox="0 0 24 24"
+                          fill="currentColor"
+                          aria-hidden="true"
+                        >
+                          <path d="M8 5v14l11-7z" />
+                        </svg>
+                      </span>
+                    </button>
+                  </li>
+                </ol>
+              </div>
             </div>
           </section>
         </Transition>
@@ -1119,18 +1121,28 @@ input[type='range']::-moz-range-thumb {
 }
 
 .music-panel__inner {
+  display: flex;
   max-height: inherit;
-  overflow-y: auto;
+  flex-direction: column;
+  overflow: hidden;
   padding: 16px 18px 12px;
 }
 
 .music-panel__head {
   display: flex;
+  flex: none;
   align-items: center;
   justify-content: space-between;
   gap: 16px;
   padding-bottom: 12px;
   border-bottom: 1px solid var(--border);
+}
+
+.music-panel__body {
+  min-height: 0;
+  flex: 1 1 auto;
+  overflow-y: auto;
+  padding-top: 1px;
 }
 
 .music-panel__head p {
