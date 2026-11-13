@@ -3,6 +3,12 @@ import { defineStore } from 'pinia'
 
 import { publicApi } from '@/lib/api'
 import { toErrorMessage } from '@/lib/errors'
+import {
+  registerMediaSessionActions,
+  setMediaPlaybackState,
+  setMediaPositionState,
+  updateMediaMetadata,
+} from '@/lib/mediaSession'
 import type { MusicPlaylistSummary, MusicTrack } from '@/types/music'
 
 export type PlayMode = 'list' | 'one' | 'shuffle'
@@ -81,6 +87,37 @@ export const usePlayerStore = defineStore('player', () => {
     }
   }
 
+  function syncMediaMetadata(): void {
+    updateMediaMetadata(currentTrack.value, currentPlaylist.value)
+  }
+
+  function syncMediaPlaybackState(): void {
+    if (!currentTrack.value) {
+      setMediaPlaybackState('none')
+      return
+    }
+    setMediaPlaybackState(isPlaying.value ? 'playing' : 'paused')
+  }
+
+  function syncMediaPosition(): void {
+    if (!currentTrack.value) return
+    setMediaPositionState(duration.value, currentTime.value, audio?.playbackRate ?? 1)
+  }
+
+  function seekTo(seconds: number): void {
+    if (!audio) return
+    const limit = duration.value > 0 ? duration.value : audio.duration
+    if (!Number.isFinite(limit) || limit <= 0) return
+    const time = Math.min(limit, Math.max(0, seconds))
+    audio.currentTime = time
+    currentTime.value = time
+    syncMediaPosition()
+  }
+
+  function seekBy(seconds: number): void {
+    seekTo(currentTime.value + seconds)
+  }
+
   function ensureAudio(): HTMLAudioElement | null {
     if (typeof window === 'undefined') return null
     if (audio) return audio
@@ -88,11 +125,21 @@ export const usePlayerStore = defineStore('player', () => {
     audio = new Audio()
     audio.preload = 'metadata'
     audio.volume = volume.value
+    audio.addEventListener('play', () => {
+      isPlaying.value = true
+      syncMediaPlaybackState()
+    })
+    audio.addEventListener('pause', () => {
+      isPlaying.value = false
+      syncMediaPlaybackState()
+    })
     audio.addEventListener('timeupdate', () => {
       currentTime.value = Number.isFinite(audio?.currentTime) ? (audio?.currentTime ?? 0) : 0
+      syncMediaPosition()
     })
     audio.addEventListener('loadedmetadata', () => {
       duration.value = Number.isFinite(audio?.duration) ? (audio?.duration ?? 0) : 0
+      syncMediaPosition()
     })
     audio.addEventListener('ended', () => {
       void handleEnded()
@@ -101,7 +148,22 @@ export const usePlayerStore = defineStore('player', () => {
       if (!currentTrack.value) return
       error.value = '当前曲目暂时无法播放，可以试试下一首'
       isPlaying.value = false
+      syncMediaPlaybackState()
     })
+
+    registerMediaSessionActions({
+      play: () => void play(),
+      pause,
+      previous,
+      next: () => next(true),
+      seekTo,
+      seekBy,
+      stop: () => {
+        pause()
+        seekTo(0)
+      },
+    })
+
     return audio
   }
 
@@ -116,10 +178,14 @@ export const usePlayerStore = defineStore('player', () => {
       player.pause()
       player.removeAttribute('src')
       player.load()
+      syncMediaMetadata()
+      syncMediaPlaybackState()
       return
     }
     player.src = track.url
     player.load()
+    syncMediaMetadata()
+    syncMediaPlaybackState()
   }
 
   async function play(): Promise<void> {
@@ -134,15 +200,19 @@ export const usePlayerStore = defineStore('player', () => {
       await player.play()
       isPlaying.value = true
       error.value = ''
+      syncMediaPlaybackState()
+      syncMediaPosition()
     } catch {
       isPlaying.value = false
       error.value = '浏览器阻止了自动播放，请再点一次播放'
+      syncMediaPlaybackState()
     }
   }
 
   function pause(): void {
     audio?.pause()
     isPlaying.value = false
+    syncMediaPlaybackState()
   }
 
   function toggle(): void {
@@ -230,9 +300,7 @@ export const usePlayerStore = defineStore('player', () => {
 
   function seekRatio(ratio: number): void {
     if (!audio || !duration.value) return
-    const time = Math.min(duration.value, Math.max(0, ratio * duration.value))
-    audio.currentTime = time
-    currentTime.value = time
+    seekTo(ratio * duration.value)
   }
 
   function togglePanel(): void {
@@ -270,6 +338,8 @@ export const usePlayerStore = defineStore('player', () => {
       if (playlists.value.length === 0) {
         currentPlaylistId.value = null
         tracks.value = []
+        updateMediaMetadata(null, null)
+        setMediaPlaybackState('none')
         initialized.value = true
         return
       }

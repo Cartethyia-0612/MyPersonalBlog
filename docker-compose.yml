@@ -3,7 +3,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    image: eshi-tech-notes:1.1.9
+    image: eshi-tech-notes:1.1.10
     container_name: eshi-blog
     restart: unless-stopped
     init: true

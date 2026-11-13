@@ -1,6 +1,6 @@
 {
   "name": "eshi-tech-notes",
-  "version": "1.1.9",
+  "version": "1.1.10",
   "private": true,
   "type": "module",
   "description": "饿师傅的技术札记 — a Tianyi-blue geek personal blog built with Vue 3, Node.js and SQLite.",
