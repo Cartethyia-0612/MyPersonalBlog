@@ -11,12 +11,12 @@ import BrandMark from '@/components/BrandMark.vue'
       <h1 class="loading-screen__name">饿师傅的技术札记</h1>
       <div class="loading-screen__line">
         <span class="loading-screen__prompt mono">&gt;</span>
-        <span class="loading-screen__typing mono">mounting inspiration, code and music...</span>
+        <span class="loading-screen__typing mono">loading fonts, assets &amp; inspiration...</span>
       </div>
       <div class="loading-screen__track" aria-hidden="true">
         <div class="loading-screen__fill" />
       </div>
-      <span class="loading-screen__hint mono">TIANYI BLUE // SYSTEM BOOT</span>
+      <span class="loading-screen__hint mono">FONTS // ASSETS // SYSTEM BOOT</span>
     </div>
   </div>
 </template>
