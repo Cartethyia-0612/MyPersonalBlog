@@ -20,8 +20,7 @@ const form = reactive<AdminSettings>({
     icp: '',
     policeIcp: '',
     policeUrl: '',
-    virtualRecord: '',
-    virtualRecordUrl: '',
+    virtualRecords: [],
     customText: '',
     copyright: '',
   },
@@ -49,6 +48,9 @@ async function loadSettings(): Promise<void> {
     const settings = await adminApi.getSettings()
     Object.assign(form.site, settings.site)
     Object.assign(form.footer, settings.footer)
+    form.footer.virtualRecords = Array.isArray(settings.footer.virtualRecords)
+      ? settings.footer.virtualRecords
+      : []
     Object.assign(form.music, settings.music)
     initialized.value = true
     iconFailed.value = false
@@ -68,9 +70,17 @@ async function saveSettings(): Promise<void> {
   }
   saving.value = true
   try {
+    const records = form.footer.virtualRecords
+      .map((record) => ({ text: record.text.trim(), url: record.url.trim() }))
+      .filter((record) => record.text || record.url)
+    if (records.some((record) => !record.text)) {
+      error.value = '虚拟备案项的显示文本不能为空'
+      saving.value = false
+      return
+    }
     const settings = await adminApi.updateSettings({
       site: { ...form.site },
-      footer: { ...form.footer },
+      footer: { ...form.footer, virtualRecords: records },
       music: { ...form.music },
     })
     Object.assign(form.site, settings.site)
@@ -85,6 +95,15 @@ async function saveSettings(): Promise<void> {
   } finally {
     saving.value = false
   }
+}
+
+function addVirtualRecord(): void {
+  if (form.footer.virtualRecords.length >= 10) return
+  form.footer.virtualRecords.push({ text: '', url: '' })
+}
+
+function removeVirtualRecord(index: number): void {
+  form.footer.virtualRecords.splice(index, 1)
 }
 
 function triggerIconUpload(): void {
@@ -264,20 +283,70 @@ useSeo(() => ({
                   placeholder="https://beian.mps.gov.cn/…"
                 />
               </label>
-              <div class="admin-form-row">
-                <label class="admin-label">
-                  虚拟备案号
-                  <input v-model="form.footer.virtualRecord" class="input" placeholder="萌备…号" />
-                </label>
-                <label class="admin-label">
-                  虚拟备案链接（可选）
+              <div class="settings-repeater">
+                <div class="settings-repeater__head">
+                  <div>
+                    <p class="settings-repeater__title">虚拟备案 / 自定义地址</p>
+                    <p class="settings-repeater__hint">
+                      显示文本必填，链接可选，支持 http(s)。最多 10 项。
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    class="btn btn--sm btn--ghost"
+                    :disabled="form.footer.virtualRecords.length >= 10"
+                    @click="addVirtualRecord"
+                  >
+                    + 添加一项
+                  </button>
+                </div>
+                <p
+                  v-if="form.footer.virtualRecords.length === 0"
+                  class="settings-repeater__empty mono"
+                >
+                  NO_CUSTOM_RECORDS
+                </p>
+                <div
+                  v-for="(record, index) in form.footer.virtualRecords"
+                  :key="index"
+                  class="settings-repeater__row"
+                >
                   <input
-                    v-model="form.footer.virtualRecordUrl"
+                    v-model="record.text"
+                    class="input"
+                    maxlength="100"
+                    placeholder="显示文本，如 萌ICP备…号"
+                    aria-label="虚拟备案显示文本"
+                  />
+                  <input
+                    v-model="record.url"
                     class="input"
                     type="url"
-                    placeholder="https://…"
+                    maxlength="2048"
+                    placeholder="https://…（可选）"
+                    aria-label="虚拟备案链接"
                   />
-                </label>
+                  <button
+                    type="button"
+                    class="settings-repeater__remove"
+                    aria-label="删除此虚拟备案项"
+                    title="删除此项"
+                    @click="removeVirtualRecord(index)"
+                  >
+                    <svg
+                      width="15"
+                      height="15"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="1.8"
+                      stroke-linecap="round"
+                      aria-hidden="true"
+                    >
+                      <path d="M4 7h16M9 7V4h6v3M7 7l1 13h8l1-13M10 11v5M14 11v5" />
+                    </svg>
+                  </button>
+                </div>
               </div>
               <label class="admin-label">
                 版权文本
@@ -361,7 +430,11 @@ useSeo(() => ({
             <div class="footer-preview__legal">
               <span v-if="form.footer.icp">{{ form.footer.icp }}</span>
               <span v-if="form.footer.policeIcp">{{ form.footer.policeIcp }}</span>
-              <span v-if="form.footer.virtualRecord">{{ form.footer.virtualRecord }}</span>
+              <span
+                v-for="(record, index) in form.footer.virtualRecords"
+                :key="`${record.text}-${index}`"
+                >{{ record.text }}</span
+              >
               <span v-if="form.footer.customText">{{ form.footer.customText }}</span>
             </div>
           </section>
@@ -407,6 +480,69 @@ useSeo(() => ({
 
 .settings-body {
   padding: 19px;
+}
+
+.settings-repeater {
+  display: grid;
+  gap: 9px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+}
+
+.settings-repeater__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.settings-repeater__title {
+  color: var(--text-soft);
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.settings-repeater__hint {
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 0.6rem;
+  line-height: 1.6;
+}
+
+.settings-repeater__empty {
+  padding: 8px 0 1px;
+  color: var(--muted);
+  font-size: 0.56rem;
+  letter-spacing: 0.06em;
+}
+
+.settings-repeater__row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr) 34px;
+  align-items: center;
+  gap: 8px;
+}
+
+.settings-repeater__remove {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xs);
+  background: transparent;
+  color: var(--muted);
+}
+
+.settings-repeater__remove:hover {
+  border-color: rgba(220, 80, 80, 0.35);
+  color: #c24040;
+}
+
+:root[data-theme='dark'] .settings-repeater__remove:hover {
+  color: #ff9a9a;
 }
 
 .settings-code {
@@ -540,6 +676,18 @@ useSeo(() => ({
 
   .settings-body {
     padding: 15px;
+  }
+
+  .settings-repeater__head {
+    flex-direction: column;
+  }
+
+  .settings-repeater__row {
+    grid-template-columns: 1fr;
+  }
+
+  .settings-repeater__remove {
+    justify-self: end;
   }
 }
 </style>

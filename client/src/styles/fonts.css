@@ -1,0 +1,15 @@
+@font-face {
+  font-family: 'ESRS WenKai';
+  src: url('/fonts/lxgw-wenkai-gb-subset.woff2') format('woff2');
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'ESRS Maple Mono';
+  src: url('/fonts/maple-mono-subset.woff2') format('woff2');
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+}

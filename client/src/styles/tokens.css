@@ -34,9 +34,15 @@
     0 0 0 1px rgba(var(--brand-rgb), 0.24), 0 24px 60px -28px rgba(var(--brand-rgb), 0.4);
 
   /* type */
-  --font-sans:
+  --font-site-sans:
+    'ESRS WenKai', 'HarmonyOS Sans SC', 'PingFang SC', 'Microsoft YaHei', system-ui, sans-serif;
+  --font-site-mono:
+    'ESRS Maple Mono', 'JetBrains Mono', 'Cascadia Code', 'SFMono-Regular', Consolas, monospace;
+  --font-system-sans:
     'Inter', 'HarmonyOS Sans SC', 'PingFang SC', 'Microsoft YaHei', system-ui, sans-serif;
-  --font-mono: 'JetBrains Mono', 'Cascadia Code', 'SFMono-Regular', Consolas, monospace;
+  --font-system-mono: 'JetBrains Mono', 'Cascadia Code', 'SFMono-Regular', Consolas, monospace;
+  --font-sans: var(--font-site-sans);
+  --font-mono: var(--font-site-mono);
 
   /* geometry */
   --container: 1120px;
@@ -52,6 +58,11 @@
   --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
   --duration-fast: 160ms;
   --duration-base: 280ms;
+}
+
+:root[data-font='system'] {
+  --font-sans: var(--font-system-sans);
+  --font-mono: var(--font-system-mono);
 }
 
 :root[data-theme='dark'] {

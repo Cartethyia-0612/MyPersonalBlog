@@ -28,13 +28,19 @@ const sitePatchSchema = z
   })
   .strict()
 
+const footerLinkSchema = z
+  .object({
+    text: z.string().trim().min(1).max(100),
+    url: optionalHttpUrlSchema,
+  })
+  .strict()
+
 const footerPatchSchema = z
   .object({
     icp: z.string().trim().max(80).optional(),
     policeIcp: z.string().trim().max(80).optional(),
     policeUrl: optionalHttpUrlSchema.optional(),
-    virtualRecord: z.string().trim().max(100).optional(),
-    virtualRecordUrl: optionalHttpUrlSchema.optional(),
+    virtualRecords: z.array(footerLinkSchema).max(10).optional(),
     customText: z.string().trim().max(500).optional(),
     copyright: z.string().trim().max(200).optional(),
   })

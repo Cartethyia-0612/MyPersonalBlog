@@ -40,8 +40,7 @@ describe('public content APIs', () => {
     expect(site.body.site.name).toBe('饿师傅的技术札记')
     expect(site.body.footer).toHaveProperty('icp')
     expect(site.body.footer).toHaveProperty('policeIcp')
-    expect(site.body.footer).toHaveProperty('virtualRecord')
-    expect(site.body.footer).toHaveProperty('virtualRecordUrl')
+    expect(site.body.footer).toHaveProperty('virtualRecords')
     expect(site.body.footer).toHaveProperty('customText')
 
     const articles = await request(testContext.app).get('/api/articles').expect(200)
@@ -53,6 +52,28 @@ describe('public content APIs', () => {
 
     const about = await request(testContext.app).get('/api/about').expect(200)
     expect(about.body.contentMd).toContain('饿师傅')
+  })
+
+  it('migrates legacy single virtual-record fields into the new list format', async () => {
+    const testContext = createTestContext()
+    context = testContext
+    testContext.db.prepare('UPDATE settings SET value_json = ? WHERE key = ?').run(
+      JSON.stringify({
+        icp: '',
+        policeIcp: '',
+        policeUrl: '',
+        virtualRecord: '旧萌备20260001号',
+        virtualRecordUrl: 'https://moe.example.com/record/legacy',
+        customText: '',
+        copyright: '',
+      }),
+      'footer',
+    )
+
+    const site = await request(testContext.app).get('/api/site').expect(200)
+    expect(site.body.footer.virtualRecords).toEqual([
+      { text: '旧萌备20260001号', url: 'https://moe.example.com/record/legacy' },
+    ])
   })
 
   it('publishes, updates, unpublishes and deletes an article', async () => {
@@ -250,8 +271,10 @@ describe('settings and about APIs', () => {
         footer: {
           icp: '苏ICP备00000000号',
           policeIcp: '苏公网安备00000000号',
-          virtualRecord: '萌备20260001号',
-          virtualRecordUrl: 'https://moe.example.com/record/20260001',
+          virtualRecords: [
+            { text: '萌备20260001号', url: 'https://moe.example.com/record/20260001' },
+            { text: '自定义地址', url: '' },
+          ],
           customText: '本站无评论区',
         },
         music: {
@@ -265,8 +288,10 @@ describe('settings and about APIs', () => {
 
     const publicSite = await request(testContext.app).get('/api/site')
     expect(publicSite.body.site.name).toBe('饿师傅的新札记')
-    expect(publicSite.body.footer.virtualRecord).toBe('萌备20260001号')
-    expect(publicSite.body.footer.virtualRecordUrl).toBe('https://moe.example.com/record/20260001')
+    expect(publicSite.body.footer.virtualRecords).toEqual([
+      { text: '萌备20260001号', url: 'https://moe.example.com/record/20260001' },
+      { text: '自定义地址', url: '' },
+    ])
 
     const aboutUpdate = await agent
       .put('/api/admin/about')
@@ -290,7 +315,7 @@ describe('settings and about APIs', () => {
     const invalidVirtualRecordUrl = await agent
       .put('/api/admin/settings')
       .set('X-CSRF-Token', csrfToken)
-      .send({ footer: { virtualRecordUrl: 'javascript:alert(1)' } })
+      .send({ footer: { virtualRecords: [{ text: '非法地址', url: 'javascript:alert(1)' }] } })
     expect(invalidVirtualRecordUrl.status).toBe(400)
 
     const unauthenticated = await request(testContext.app).get('/api/admin/settings')

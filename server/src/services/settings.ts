@@ -9,12 +9,16 @@ export interface SiteSettings {
   siteUrl: string
 }
 
+export interface FooterLink {
+  text: string
+  url: string
+}
+
 export interface FooterSettings {
   icp: string
   policeIcp: string
   policeUrl: string
-  virtualRecord: string
-  virtualRecordUrl: string
+  virtualRecords: FooterLink[]
   customText: string
   copyright: string
 }
@@ -41,8 +45,7 @@ export const DEFAULT_FOOTER_SETTINGS: FooterSettings = {
   icp: '',
   policeIcp: '',
   policeUrl: '',
-  virtualRecord: '',
-  virtualRecordUrl: '',
+  virtualRecords: [],
   customText: '',
   copyright: '',
 }
@@ -74,8 +77,63 @@ export function getSiteSettings(db: Db): SiteSettings {
   return readSetting(db, 'site', DEFAULT_SITE_SETTINGS)
 }
 
+interface StoredFooterSettings extends Partial<FooterSettings> {
+  /** Legacy single virtual-record fields, migrated on read. */
+  virtualRecord?: unknown
+  virtualRecordUrl?: unknown
+}
+
+function stringValue(value: unknown): string {
+  return typeof value === 'string' ? value : ''
+}
+
+function normalizeVirtualUrl(value: unknown): string {
+  const url = stringValue(value).trim()
+  if (!url) return ''
+  try {
+    const parsed = new URL(url)
+    return parsed.protocol === 'http:' || parsed.protocol === 'https:' ? url : ''
+  } catch {
+    return ''
+  }
+}
+
+function normalizeVirtualRecords(value: unknown): FooterLink[] {
+  if (!Array.isArray(value)) return []
+  return value.flatMap((item) => {
+    if (!item || typeof item !== 'object') return []
+    const record = item as Record<string, unknown>
+    const text = stringValue(record.text).trim()
+    if (!text) return []
+    return [{ text, url: normalizeVirtualUrl(record.url) }]
+  })
+}
+
 export function getFooterSettings(db: Db): FooterSettings {
-  return readSetting(db, 'footer', DEFAULT_FOOTER_SETTINGS)
+  const stored = readSetting<StoredFooterSettings>(
+    db,
+    'footer',
+    DEFAULT_FOOTER_SETTINGS as StoredFooterSettings,
+  )
+  const virtualRecords = normalizeVirtualRecords(stored.virtualRecords)
+  if (virtualRecords.length === 0) {
+    const legacyText = stringValue(stored.virtualRecord).trim()
+    if (legacyText) {
+      virtualRecords.push({
+        text: legacyText,
+        url: normalizeVirtualUrl(stored.virtualRecordUrl),
+      })
+    }
+  }
+
+  return {
+    icp: stringValue(stored.icp),
+    policeIcp: stringValue(stored.policeIcp),
+    policeUrl: stringValue(stored.policeUrl),
+    virtualRecords,
+    customText: stringValue(stored.customText),
+    copyright: stringValue(stored.copyright),
+  }
 }
 
 export function getMusicSettings(db: Db): MusicSettings {
@@ -104,7 +162,14 @@ export function updateSiteSettings(db: Db, patch: Partial<SiteSettings>): SiteSe
 }
 
 export function updateFooterSettings(db: Db, patch: Partial<FooterSettings>): FooterSettings {
-  const next = { ...getFooterSettings(db), ...patch }
+  const current = getFooterSettings(db)
+  const next: FooterSettings = {
+    ...current,
+    ...patch,
+    virtualRecords: normalizeVirtualRecords(
+      patch.virtualRecords === undefined ? current.virtualRecords : patch.virtualRecords,
+    ),
+  }
   saveSetting(db, 'footer', next)
   return next
 }

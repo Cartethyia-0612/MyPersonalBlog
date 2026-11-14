@@ -3,8 +3,10 @@ import { computed, ref } from 'vue'
 
 export type ThemeMode = 'light' | 'dark' | 'system'
 export type ResolvedTheme = 'light' | 'dark'
+export type FontMode = 'site' | 'system'
 
 const STORAGE_KEY = 'eshi-theme'
+const FONT_STORAGE_KEY = 'eshi-font'
 
 function readStoredMode(): ThemeMode {
   if (typeof window === 'undefined') return 'system'
@@ -12,8 +14,14 @@ function readStoredMode(): ThemeMode {
   return stored === 'light' || stored === 'dark' || stored === 'system' ? stored : 'system'
 }
 
+function readStoredFont(): FontMode {
+  if (typeof window === 'undefined') return 'site'
+  return window.localStorage.getItem(FONT_STORAGE_KEY) === 'system' ? 'system' : 'site'
+}
+
 export const useThemeStore = defineStore('theme', () => {
   const mode = ref<ThemeMode>(readStoredMode())
+  const fontMode = ref<FontMode>(readStoredFont())
   const systemPrefersDark = ref(false)
   const initialized = ref(false)
 
@@ -28,6 +36,7 @@ export const useThemeStore = defineStore('theme', () => {
     const theme = resolved.value
     document.documentElement.dataset.theme = theme
     document.documentElement.dataset.themeMode = mode.value
+    document.documentElement.dataset.font = fontMode.value
     document.documentElement.style.colorScheme = theme
     const themeColor = document.querySelector('meta[name="theme-color"]')
     if (themeColor) themeColor.setAttribute('content', theme === 'dark' ? '#07121d' : '#66CCFF')
@@ -36,6 +45,12 @@ export const useThemeStore = defineStore('theme', () => {
   function setMode(next: ThemeMode): void {
     mode.value = next
     if (typeof window !== 'undefined') window.localStorage.setItem(STORAGE_KEY, next)
+    apply()
+  }
+
+  function setFontMode(next: FontMode): void {
+    fontMode.value = next
+    if (typeof window !== 'undefined') window.localStorage.setItem(FONT_STORAGE_KEY, next)
     apply()
   }
 
@@ -53,9 +68,11 @@ export const useThemeStore = defineStore('theme', () => {
 
   return {
     mode,
+    fontMode,
     resolved,
     initialized,
     init,
     setMode,
+    setFontMode,
   }
 })

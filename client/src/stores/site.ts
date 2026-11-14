@@ -17,8 +17,7 @@ const DEFAULT_FOOTER: FooterInfo = {
   icp: '',
   policeIcp: '',
   policeUrl: '',
-  virtualRecord: '',
-  virtualRecordUrl: '',
+  virtualRecords: [],
   customText: '',
   copyright: '',
 }

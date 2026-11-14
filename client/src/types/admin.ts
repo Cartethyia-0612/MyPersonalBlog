@@ -54,6 +54,8 @@ export interface AdminOverview {
   }>
 }
 
+import type { FooterLink } from './content'
+
 export interface AdminSettings {
   site: {
     name: string
@@ -67,8 +69,7 @@ export interface AdminSettings {
     icp: string
     policeIcp: string
     policeUrl: string
-    virtualRecord: string
-    virtualRecordUrl: string
+    virtualRecords: FooterLink[]
     customText: string
     copyright: string
   }

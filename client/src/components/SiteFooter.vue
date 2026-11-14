@@ -93,15 +93,14 @@ const navLinks = [
             >
             <span v-else>{{ siteStore.footer.policeIcp }}</span>
           </li>
-          <li v-if="siteStore.footer.virtualRecord">
-            <a
-              v-if="siteStore.footer.virtualRecordUrl"
-              :href="siteStore.footer.virtualRecordUrl"
-              target="_blank"
-              rel="noopener noreferrer"
-              >{{ siteStore.footer.virtualRecord }}</a
-            >
-            <span v-else>{{ siteStore.footer.virtualRecord }}</span>
+          <li
+            v-for="(record, index) in siteStore.footer.virtualRecords"
+            :key="`${record.text}-${index}`"
+          >
+            <a v-if="record.url" :href="record.url" target="_blank" rel="noopener noreferrer">{{
+              record.text
+            }}</a>
+            <span v-else>{{ record.text }}</span>
           </li>
           <li v-if="siteStore.footer.customText" class="footer-legal__custom">
             {{ siteStore.footer.customText }}

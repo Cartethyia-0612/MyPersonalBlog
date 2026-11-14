@@ -100,7 +100,7 @@ export const migrations: Migration[] = [
 
       INSERT OR IGNORE INTO settings (key, value_json, updated_at) VALUES
         ('site', '{"name":"饿师傅的技术札记","tagline":"把灵感写成可复用的代码","description":"记录工程实践、工具折腾与灵感的个人技术博客。","icon":"/favicon.svg","author":"饿师傅","siteUrl":""}', strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
-        ('footer', '{"icp":"","policeIcp":"","policeUrl":"","virtualRecord":"","virtualRecordUrl":"","customText":"","copyright":""}', strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+        ('footer', '{"icp":"","policeIcp":"","policeUrl":"","virtualRecords":[],"customText":"","copyright":""}', strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
         ('about', '{"contentMd":"## 你好，我是饿师傅\\n\\n欢迎来到我的技术札记。这里记录工程实践、工具折腾，以及偶尔闪现的灵感。\\n\\n- 写代码，也写踩坑记录\\n- 喜欢清晰、可维护的解决方案\\n- 天依蓝是本博客的底色\\n\\n> 保持好奇，保持构建。\\n\\n## 关于本站\\n\\n本站使用 Vue 3、Node.js 与 SQLite 构建。没有评论区，只有安静阅读与持续记录。"}', strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
         ('music', '{"apiBase":"https://api.qijieya.cn/meting/"}', strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
         ('seo', '{"siteUrl":"","indexNowKey":"","baiduToken":""}', strftime('%Y-%m-%dT%H:%M:%fZ', 'now'));

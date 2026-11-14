@@ -5,6 +5,7 @@ import App from './App.vue'
 import router from './router'
 import { useThemeStore } from './stores/theme'
 
+import './styles/fonts.css'
 import './styles/tokens.css'
 import './styles/base.css'
 import './styles/ui.css'

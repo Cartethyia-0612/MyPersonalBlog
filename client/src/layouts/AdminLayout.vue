@@ -4,7 +4,7 @@ import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router'
 import AdminIcon from '@/components/admin/AdminIcon.vue'
 import ToastHost from '@/components/admin/ToastHost.vue'
 import BrandMark from '@/components/BrandMark.vue'
-import ThemeToggle from '@/components/ThemeToggle.vue'
+import AppearanceSettings from '@/components/AppearanceSettings.vue'
 import '@/styles/admin.css'
 import { useAuthStore } from '@/stores/auth'
 import { useSiteStore } from '@/stores/site'
@@ -200,7 +200,7 @@ async function handleLogout(): Promise<void> {
             <AdminIcon name="external" :size="14" />
             <span class="admin-topbar__view-site">查看站点</span>
           </RouterLink>
-          <ThemeToggle />
+          <AppearanceSettings />
         </div>
       </header>
 

@@ -28,6 +28,7 @@ describe('theme store', () => {
   beforeEach(() => {
     localStorage.clear()
     document.documentElement.dataset.theme = ''
+    document.documentElement.dataset.font = ''
     listeners.length = 0
     setActivePinia(createPinia())
     mockMatchMedia(false)
@@ -56,6 +57,22 @@ describe('theme store', () => {
     setActivePinia(secondPinia)
     const restored = useThemeStore()
     expect(restored.mode).toBe('dark')
+  })
+
+  it('defaults to the site font and persists the system font preference', () => {
+    const store = useThemeStore()
+    store.init()
+    expect(store.fontMode).toBe('site')
+    expect(document.documentElement.dataset.font).toBe('site')
+
+    store.setFontMode('system')
+    expect(document.documentElement.dataset.font).toBe('system')
+    expect(localStorage.getItem('eshi-font')).toBe('system')
+
+    const secondPinia = createPinia()
+    setActivePinia(secondPinia)
+    const restored = useThemeStore()
+    expect(restored.fontMode).toBe('system')
   })
 
   it('reacts to system changes only while in system mode', () => {

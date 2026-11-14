@@ -22,6 +22,9 @@ backups/
 *.sqlite
 *.sqlite3
 
+# local font sources and font tooling (generated woff2 files are committed)
+.fontsrc/
+
 # logs
 *.log
 npm-debug.log*

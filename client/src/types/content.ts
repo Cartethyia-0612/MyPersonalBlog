@@ -7,12 +7,16 @@ export interface SiteInfo {
   siteUrl: string
 }
 
+export interface FooterLink {
+  text: string
+  url: string
+}
+
 export interface FooterInfo {
   icp: string
   policeIcp: string
   policeUrl: string
-  virtualRecord: string
-  virtualRecordUrl: string
+  virtualRecords: FooterLink[]
   customText: string
   copyright: string
 }

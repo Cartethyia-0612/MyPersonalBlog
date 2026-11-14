@@ -3,7 +3,7 @@ import { onMounted, ref } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 
 import BrandMark from '@/components/BrandMark.vue'
-import ThemeToggle from '@/components/ThemeToggle.vue'
+import AppearanceSettings from '@/components/AppearanceSettings.vue'
 import '@/styles/admin.css'
 import { useSeo } from '@/lib/seo'
 import { useAuthStore } from '@/stores/auth'
@@ -103,7 +103,7 @@ useSeo(() => ({
     <div class="login-page__glow" aria-hidden="true" />
 
     <div class="login-page__theme">
-      <ThemeToggle />
+      <AppearanceSettings />
     </div>
 
     <section class="login-page__intro">

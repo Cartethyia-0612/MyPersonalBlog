@@ -3,7 +3,7 @@ import { computed, ref, watch } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 
 import BrandMark from '@/components/BrandMark.vue'
-import ThemeToggle from '@/components/ThemeToggle.vue'
+import AppearanceSettings from '@/components/AppearanceSettings.vue'
 import { useSiteStore } from '@/stores/site'
 
 const siteStore = useSiteStore()
@@ -78,7 +78,7 @@ watch(
 
       <div class="site-header__actions">
         <span class="online-badge mono"><i />ONLINE</span>
-        <ThemeToggle />
+        <AppearanceSettings />
         <RouterLink
           class="icon-btn admin-entry"
           to="/admin"
@@ -390,10 +390,6 @@ watch(
 
   .site-header__actions {
     gap: 7px;
-  }
-
-  .site-header__actions :deep(.theme-switcher__label) {
-    display: none;
   }
 }
 </style>
