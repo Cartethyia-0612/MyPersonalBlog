@@ -485,6 +485,7 @@ sudo systemctl start eshi-blog
 2. 访问并检查：
    - `https://blog.example.com/sitemap.xml`
    - `https://blog.example.com/robots.txt`
+   - `https://blog.example.com/rss.xml`
 3. 在 Google Search Console / Bing Webmaster / 百度搜索资源平台提交 sitemap。
 4. **IndexNow**
    - 后台「SEO 推送」生成或填写 Key；

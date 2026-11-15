@@ -19,6 +19,7 @@
 - 文章 Markdown 渲染、代码高亮、标签筛选、分页、阅读时长
 - 响应式布局与可访问性细节
 - 页脚预留 ICP 备案、公安备案、虚拟备案地址列表（可增删，自定义显示文本与链接）、自定义文本与版权文案；BUILD_INFO 显示版本号与构建时间
+- RSS 2.0 订阅源：`/rss.xml`，自动包含已发布文章，支持浏览器/阅读器订阅发现
 - 音乐播放器：Meting 代理、多固定歌单、播放/暂停、上一首/下一首、列表循环/单曲循环/随机、进度、音量、歌单切换；支持向下箭头隐藏，并在左下角保留悬浮恢复按钮（显示当前曲目封面，失败回退音符图标；隐藏时音乐继续）；移动端音量以按钮展开浮层调节，滑条限制在浮层内并水平居中
 - 正在播放信息同步至浏览器/系统媒体控制中心（Media Session）：歌名、歌手、专辑图、播放状态、上下曲与进度控制
 - 服务端对公开页首屏注入 title / description / canonical / Open Graph / article meta
@@ -224,7 +225,7 @@ docker-compose.yml       Docker Compose 单实例部署
 - `GET /api/site`、`GET /api/articles`、`GET /api/articles/:slug`
 - `GET /api/friends`、`GET /api/about`
 - `GET /api/music/playlists`、`GET /api/music/playlists/:id`
-- `GET /sitemap.xml`、`GET /robots.txt`、`GET /<indexnow-key>.txt`
+- `GET /sitemap.xml`、`GET /robots.txt`、`GET /rss.xml`、`GET /<indexnow-key>.txt`
 - `GET /api/health`
 
 认证与后台接口：

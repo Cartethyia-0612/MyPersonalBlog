@@ -91,6 +91,27 @@ describe('SEO public endpoints', () => {
     expect(response.text).toContain('<lastmod>')
   })
 
+  it('serves an RSS feed containing published articles only', async () => {
+    const { testContext, agent, csrf } = await setupAdmin()
+    await setPublicSiteUrl(agent, csrf)
+    await publishArticle(agent, csrf, 'RSS & <文章>', 'rss-entry')
+
+    const draft = await agent
+      .post('/api/admin/articles')
+      .set('X-CSRF-Token', csrf)
+      .send({ title: 'RSS 草稿', slug: 'rss-draft', contentMd: 'draft', status: 'draft' })
+    expect(draft.status).toBe(201)
+
+    const response = await request(testContext.app).get('/rss.xml')
+    expect(response.status).toBe(200)
+    expect(response.headers['content-type']).toContain('application/rss+xml')
+    expect(response.text).toContain('<rss version="2.0"')
+    expect(response.text).toContain('https://blog.example.com/rss.xml')
+    expect(response.text).toContain('https://blog.example.com/articles/rss-entry')
+    expect(response.text).toContain('RSS &amp; &lt;文章&gt;')
+    expect(response.text).not.toContain('rss-draft')
+  })
+
   it('serves robots.txt with admin/api disallow and sitemap reference', async () => {
     const { testContext, agent, csrf } = await setupAdmin()
     await setPublicSiteUrl(agent, csrf)

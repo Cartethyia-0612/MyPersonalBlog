@@ -56,6 +56,7 @@ describe('SiteFooter', () => {
     expect(wrapper.find('a[href="https://beian.mps.gov.cn/"]').exists()).toBe(true)
     expect(wrapper.find('a[href="https://moe.example.com/record/20260001"]').exists()).toBe(true)
     expect(wrapper.find('a[href="https://example.com/custom"]').exists()).toBe(true)
+    expect(wrapper.find('a[href="/rss.xml"]').exists()).toBe(true)
   })
 
   it('does not render empty compliance placeholders', () => {

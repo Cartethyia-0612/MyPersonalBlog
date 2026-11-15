@@ -14,7 +14,7 @@ import { createAdminRouter } from './routes/admin'
 import { createAuthRouter } from './routes/auth'
 import { createPublicRouter } from './routes/public'
 import { createSeoRouter } from './routes/seo'
-import { renderSpaHtml } from './services/spaMeta'
+import { renderSpaHtml, getPageMeta } from './services/spaMeta'
 
 export interface AppDependencies {
   config: AppConfig
@@ -99,13 +99,24 @@ export function createApp({ config, db }: AppDependencies): Express {
   // Serve the built SPA when present. API routes are registered above so a
   // missing API path can never fall back to HTML.
   if (fs.existsSync(path.join(config.clientDistDir, 'index.html'))) {
+    const indexPath = path.join(config.clientDistDir, 'index.html')
     app.use(express.static(config.clientDistDir, { index: false, maxAge: '1h' }))
-    app.get(/.*/, (req, res, next) => {
-      // Missing static assets should stay 404 instead of returning the SPA.
-      if (path.extname(req.path)) return next()
-      const rendered = renderSpaHtml(db, config, req.path)
-      if (!rendered) return res.sendFile(path.join(config.clientDistDir, 'index.html'))
-      res.status(rendered.status).type('html').send(rendered.html)
+
+    // SPA fallback: every non-API GET/HEAD that did not match a real static
+    // file is handed to the Vue router, including unknown paths with suffixes.
+    // Known public/admin pages keep the server-injected SEO meta; unknown pages
+    // get the raw index and Vue renders its 404 view.
+    app.use((req, res, next) => {
+      if (req.method !== 'GET' && req.method !== 'HEAD') return next()
+      const meta = getPageMeta(db, config, req.path)
+      if (meta.status !== 404) {
+        const rendered = renderSpaHtml(db, config, req.path)
+        if (rendered) {
+          res.status(rendered.status).type('html').send(rendered.html)
+          return
+        }
+      }
+      res.sendFile(indexPath)
     })
   } else {
     app.get('/', (_req, res) => {

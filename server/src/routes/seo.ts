@@ -3,6 +3,7 @@ import { Router } from 'express'
 import type { AppConfig } from '../config'
 import type { Db } from '../db'
 import { getSeoSettings } from '../services/settings'
+import { buildRssXml } from '../services/rss'
 import {
   buildSitemapEntries,
   generateRobotsTxt,
@@ -12,6 +13,12 @@ import {
 
 export function createSeoRouter(db: Db, config: AppConfig): Router {
   const router = Router()
+
+  router.get('/rss.xml', (_req, res) => {
+    res.type('application/rss+xml; charset=utf-8')
+    res.setHeader('Cache-Control', 'public, max-age=300')
+    res.send(buildRssXml(db, config))
+  })
 
   router.get('/sitemap.xml', (req, res) => {
     const entries = buildSitemapEntries(db, config)

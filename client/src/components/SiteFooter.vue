@@ -61,6 +61,9 @@ const navLinks = [
           <RouterLink v-for="link in navLinks" :key="link.to" :to="link.to">
             {{ link.label }}
           </RouterLink>
+          <a class="footer-column__rss" href="/rss.xml" target="_blank" rel="noopener noreferrer">
+            RSS 订阅
+          </a>
         </div>
 
         <div class="footer-column footer-column--meta">
@@ -194,6 +197,22 @@ const navLinks = [
 .footer-column a {
   width: fit-content;
   color: var(--muted);
+}
+
+.footer-column__rss {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.footer-column__rss::before {
+  content: '◉';
+  color: var(--brand-deep);
+  font-size: 0.62rem;
+}
+
+:root[data-theme='dark'] .footer-column__rss::before {
+  color: var(--brand);
 }
 
 .footer-column a:hover {
