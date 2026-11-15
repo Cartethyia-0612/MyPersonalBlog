@@ -55,6 +55,10 @@ export default defineConfig({
         target: apiTarget,
         changeOrigin: false,
       },
+      '/rss.xml': {
+        target: apiTarget,
+        changeOrigin: false,
+      },
       '^/[A-Za-z0-9-]+\\.txt$': {
         target: apiTarget,
         changeOrigin: false,
