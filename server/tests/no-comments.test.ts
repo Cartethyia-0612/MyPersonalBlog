@@ -17,7 +17,7 @@ async function setupAdminAgent() {
   await seedAdmin(testContext.db)
   const agent = request.agent(testContext.app)
   const session = await agent.get('/api/auth/session')
-  const csrf = await loginAsAdmin(agent, session.body.csrfToken as string)
+  const csrf = await loginAsAdmin(agent, session.body.csrfToken as string, testContext.db)
   return { testContext, agent, csrf }
 }
 

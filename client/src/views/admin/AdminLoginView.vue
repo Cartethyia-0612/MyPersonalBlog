@@ -4,6 +4,7 @@ import { RouterLink, useRoute, useRouter } from 'vue-router'
 
 import BrandMark from '@/components/BrandMark.vue'
 import AppearanceSettings from '@/components/AppearanceSettings.vue'
+import CaptchaWidget from '@/components/CaptchaWidget.vue'
 import '@/styles/admin.css'
 import { useSeo } from '@/lib/seo'
 import { useAuthStore } from '@/stores/auth'
@@ -15,6 +16,9 @@ const authStore = useAuthStore()
 const username = ref('')
 const password = ref('')
 const code = ref('')
+const captchaToken = ref('')
+const captchaError = ref('')
+const captchaRef = ref<InstanceType<typeof CaptchaWidget> | null>(null)
 const step = ref<'credentials' | 'totp'>('credentials')
 const challengeToken = ref('')
 const localError = ref('')
@@ -39,13 +43,18 @@ onMounted(async () => {
 
 async function submitCredentials(): Promise<void> {
   localError.value = ''
+  captchaError.value = ''
   if (!username.value.trim() || !password.value) {
     localError.value = '请输入用户名和密码'
     return
   }
+  if (!captchaToken.value) {
+    localError.value = '请先完成下方的人机验证'
+    return
+  }
   submitting.value = true
   try {
-    const result = await authStore.login(username.value, password.value)
+    const result = await authStore.login(username.value, password.value, captchaToken.value)
     if (result.requiresTotp) {
       if (!result.challengeToken) {
         localError.value = '两步验证挑战创建失败，请重新登录'
@@ -59,9 +68,31 @@ async function submitCredentials(): Promise<void> {
     await goToAdmin()
   } catch (err) {
     localError.value = authStore.error || (err instanceof Error ? err.message : '登录失败')
+    resetCaptcha()
   } finally {
     submitting.value = false
   }
+}
+
+function onCaptchaSolved(token: string): void {
+  captchaToken.value = token
+  captchaError.value = ''
+  localError.value = ''
+}
+
+function onCaptchaError(message: string): void {
+  captchaToken.value = ''
+  captchaError.value = message
+}
+
+function onCaptchaReset(): void {
+  captchaToken.value = ''
+  captchaError.value = ''
+}
+
+function resetCaptcha(): void {
+  captchaToken.value = ''
+  captchaRef.value?.reset()
 }
 
 async function submitTotp(): Promise<void> {
@@ -87,6 +118,8 @@ function backToCredentials(): void {
   code.value = ''
   challengeToken.value = ''
   localError.value = ''
+  captchaError.value = ''
+  captchaToken.value = ''
   authStore.error = ''
 }
 
@@ -148,6 +181,7 @@ useSeo(() => ({
       <div class="login-page__features">
         <span class="mono">BCRYPT_HASH</span>
         <span class="mono">CSRF_GUARD</span>
+        <span class="mono">CAP_HUMAN_CHECK</span>
         <span class="mono">RATE_LIMIT</span>
         <span class="mono">TOTP_2FA</span>
       </div>
@@ -158,7 +192,7 @@ useSeo(() => ({
         <div class="login-card__head">
           <p class="mono">[ AUTHENTICATION ]</p>
           <h2>{{ step === 'credentials' ? '登录管理后台' : '两步验证' }}</h2>
-          <p v-if="step === 'credentials'">使用管理员账号与密码继续。</p>
+          <p v-if="step === 'credentials'">使用管理员账号与密码，并完成人机验证后继续。</p>
           <p v-else>打开你的验证器 App，输入当前的 6 位动态验证码。</p>
         </div>
 
@@ -195,9 +229,28 @@ useSeo(() => ({
             />
           </label>
 
+          <div class="admin-label captcha-field">
+            人机验证
+            <CaptchaWidget
+              ref="captchaRef"
+              @solved="onCaptchaSolved"
+              @error="onCaptchaError"
+              @reset="onCaptchaReset"
+            />
+          </div>
+
+          <p v-if="captchaError" class="captcha-field__error" role="status">{{ captchaError }}</p>
+          <p v-if="!captchaToken && !captchaError" class="hint">
+            请先完成上方人机验证，完成后即可提交。
+          </p>
+
           <p v-if="localError" class="admin-error" role="alert">{{ localError }}</p>
 
-          <button class="btn btn--primary login-submit" type="submit" :disabled="submitting">
+          <button
+            class="btn btn--primary login-submit"
+            type="submit"
+            :disabled="submitting || !captchaToken"
+          >
             {{ submitting ? '正在验证…' : '进入控制室' }}
             <svg
               width="15"
@@ -288,7 +341,8 @@ useSeo(() => ({
   height: 680px;
   border-radius: 50%;
   background: rgba(var(--brand-rgb), 0.2);
-  filter: blur(100px);
+  filter: blur(calc(100px * var(--blur-factor)));
+  opacity: min(1, var(--blur-factor));
   pointer-events: none;
 }
 
@@ -455,7 +509,7 @@ useSeo(() => ({
   border-radius: var(--radius-lg);
   background: var(--surface);
   box-shadow: var(--shadow-glow);
-  backdrop-filter: blur(24px);
+  backdrop-filter: blur(calc(24px * var(--blur-factor)));
 }
 
 .login-card__head > p:first-child {
@@ -482,6 +536,20 @@ useSeo(() => ({
 
 .login-form {
   margin-top: 24px;
+}
+
+.captcha-field {
+  gap: 7px;
+}
+
+.captcha-field__error {
+  color: #c24040;
+  font-size: 0.74rem;
+  line-height: 1.6;
+}
+
+:root[data-theme='dark'] .captcha-field__error {
+  color: #ff9a9a;
 }
 
 .login-submit {

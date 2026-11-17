@@ -28,7 +28,7 @@
   flex-direction: column;
   border-right: 1px solid var(--border);
   background: var(--header-bg);
-  backdrop-filter: blur(22px) saturate(1.2);
+  backdrop-filter: blur(calc(22px * var(--blur-factor))) saturate(1.2);
 }
 
 .admin-sidebar__brand {
@@ -190,7 +190,7 @@
   padding: 0 clamp(20px, 3.6vw, 42px);
   border-bottom: 1px solid var(--border);
   background: var(--header-bg);
-  backdrop-filter: blur(18px);
+  backdrop-filter: blur(calc(18px * var(--blur-factor)));
 }
 
 .admin-topbar__left {
@@ -240,7 +240,7 @@
   border-radius: var(--radius-md);
   background: var(--surface);
   box-shadow: var(--shadow-sm);
-  backdrop-filter: blur(16px);
+  backdrop-filter: blur(calc(16px * var(--blur-factor)));
 }
 
 .admin-card__head {
@@ -312,6 +312,21 @@
 
 .admin-label .hint {
   font-weight: 400;
+}
+
+.captcha-field cap-widget {
+  --cap-background: var(--surface-alt);
+  --cap-border-color: var(--border-strong);
+  --cap-border-radius: 12px;
+  --cap-color: var(--text);
+  --cap-checkbox-background: var(--surface-solid);
+  --cap-checkbox-border: 1px solid var(--border-strong);
+  --cap-checkbox-border-radius: 5px;
+  --cap-font: var(--font-sans);
+  --cap-spinner-color: var(--brand-strong);
+  --cap-spinner-background-color: var(--border);
+  --cap-widget-height: 32px;
+  --cap-widget-padding: 12px;
 }
 
 .admin-check {
@@ -568,7 +583,7 @@
   overflow-y: auto;
   padding: 24px;
   background: rgba(3, 12, 20, 0.55);
-  backdrop-filter: blur(6px);
+  backdrop-filter: blur(calc(6px * var(--blur-factor)));
 }
 
 .admin-modal {
@@ -668,7 +683,7 @@
     inset: 0;
     z-index: 70;
     background: rgba(3, 12, 20, 0.4);
-    backdrop-filter: blur(2px);
+    backdrop-filter: blur(calc(2px * var(--blur-factor)));
   }
 
   .admin-main {

@@ -1,6 +1,6 @@
 {
   "name": "@eshi/server",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "private": true,
   "description": "Express + SQLite API for 饿师傅的技术札记",
   "main": "dist/index.js",
@@ -18,6 +18,7 @@
   "dependencies": {
     "bcryptjs": "^3.0.2",
     "better-sqlite3": "^12.2.0",
+    "capjs-core": "^0.1.18",
     "cookie-parser": "^1.4.7",
     "dotenv": "^17.2.0",
     "express": "^5.1.0",

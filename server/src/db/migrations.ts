@@ -106,4 +106,20 @@ export const migrations: Migration[] = [
         ('seo', '{"siteUrl":"","indexNowKey":"","baiduToken":""}', strftime('%Y-%m-%dT%H:%M:%fZ', 'now'));
     `,
   },
+  {
+    version: 2,
+    name: 'captcha_used_tokens',
+    sql: `
+      CREATE TABLE used_tokens (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        purpose TEXT NOT NULL CHECK (purpose IN ('captcha_nonce', 'login_token')),
+        token_hash TEXT NOT NULL,
+        expires_at INTEGER NOT NULL,
+        consumed_at TEXT,
+        created_at TEXT NOT NULL,
+        UNIQUE (purpose, token_hash)
+      );
+      CREATE INDEX idx_used_tokens_expires ON used_tokens(expires_at);
+    `,
+  },
 ]

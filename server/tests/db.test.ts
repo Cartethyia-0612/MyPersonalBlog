@@ -26,6 +26,7 @@ describe('database migrations', () => {
     expect(tables).toContain('music_playlists')
     expect(tables).toContain('settings')
     expect(tables).toContain('seo_push_logs')
+    expect(tables).toContain('used_tokens')
 
     const settingsCount = db.prepare('SELECT COUNT(*) AS count FROM settings').get() as {
       count: number

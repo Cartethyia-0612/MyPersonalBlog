@@ -23,6 +23,7 @@ import {
   recordFailedAttempt,
 } from '../services/loginAttempts'
 import { createLoginChallenge, verifyLoginChallenge, verifyTotpCode } from '../services/totp'
+import { consumeLoginToken, tokenKeyFromToken } from '../services/captcha'
 import {
   createSession,
   deleteExpiredSessions,
@@ -39,6 +40,7 @@ const TOTP_WINDOW_MS = 10 * 60 * 1000
 const loginSchema = z.object({
   username: z.string().trim().min(1).max(64),
   password: z.string().min(1).max(200),
+  captchaToken: z.string().trim().max(4096).optional(),
 })
 
 const totpLoginSchema = z.object({
@@ -63,7 +65,7 @@ export function createAuthRouter(db: Db, config: AppConfig): Router {
   })
 
   router.post('/login', async (req, res) => {
-    const { username, password } = parseBody(loginSchema, req)
+    const { username, password, captchaToken } = parseBody(loginSchema, req)
     const ip = getClientIp(req)
     const accountKey = buildPasswordAttemptKey(ip, username)
     const ipKey = buildIpAttemptKey(ip)
@@ -80,6 +82,17 @@ export function createAuthRouter(db: Db, config: AppConfig): Router {
       limit: 20,
       windowMs: PASSWORD_WINDOW_MS,
     })
+
+    if (!captchaToken) {
+      throw new AppError(400, 'CAPTCHA_REQUIRED', '请先完成人机验证')
+    }
+    const captchaKey = tokenKeyFromToken(captchaToken)
+    if (!captchaKey) {
+      throw new AppError(403, 'CAPTCHA_INVALID', '人机验证无效，请重新验证')
+    }
+    if (consumeLoginToken(db, captchaKey) !== 'ok') {
+      throw new AppError(403, 'CAPTCHA_INVALID', '人机验证已失效，请重新验证')
+    }
 
     const user = findUserByUsername(db, username)
     const valid = await verifyPasswordForUser(password, user)

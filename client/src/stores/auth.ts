@@ -49,11 +49,15 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
-  async function login(username: string, password: string): Promise<LoginResult> {
+  async function login(
+    username: string,
+    password: string,
+    captchaToken: string,
+  ): Promise<LoginResult> {
     loading.value = true
     error.value = ''
     try {
-      const data = await authApi.login(username.trim(), password)
+      const data = await authApi.login(username.trim(), password, captchaToken)
       if (data.requiresTotp) {
         return {
           requiresTotp: true,

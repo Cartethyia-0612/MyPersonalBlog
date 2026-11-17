@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto'
 import path from 'node:path'
 
 import dotenv from 'dotenv'
@@ -44,6 +45,15 @@ if (nodeEnv !== 'test' && rawSecret.length < 32) {
 
 const appSecret = rawSecret || 'test-only-secret-that-is-long-enough-for-test-environments'
 
+const rawCapSecret = process.env.CAP_SECRET?.trim() || ''
+if (rawCapSecret && rawCapSecret.length < 16) {
+  throw new Error('CAP_SECRET must be at least 16 characters when it is set')
+}
+// Cap only signs short-lived challenges. Deriving a domain-separated key keeps
+// existing deployments working while still allowing CAP_SECRET to rotate alone.
+const capSecret =
+  rawCapSecret || createHash('sha256').update(`capjs-core:${appSecret}`).digest('base64url')
+
 if (!/^https?:\/\//i.test(siteUrl)) {
   throw new Error('SITE_URL must start with http:// or https://')
 }
@@ -76,6 +86,7 @@ export interface AppConfig {
   host: string
   siteUrl: string
   appSecret: string
+  capSecret: string
   cookieSecure: boolean
   trustProxy: boolean
   projectRoot: string
@@ -101,6 +112,7 @@ export const config: AppConfig = {
   host,
   siteUrl,
   appSecret,
+  capSecret,
   cookieSecure: readBoolean(process.env.COOKIE_SECURE, isProduction),
   trustProxy: readBoolean(process.env.TRUST_PROXY, false),
   projectRoot,

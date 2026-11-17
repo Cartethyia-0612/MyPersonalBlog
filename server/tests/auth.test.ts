@@ -8,6 +8,7 @@ import {
   ADMIN_USERNAME,
   createAgentContext,
   createTestContext,
+  issueCaptchaToken,
   loginAsAdmin,
   seedAdmin,
   type TestContext,
@@ -28,7 +29,11 @@ describe('admin authentication', () => {
 
     const response = await request(testContext.app)
       .post('/api/auth/login')
-      .send({ username: ADMIN_USERNAME, password: ADMIN_PASSWORD })
+      .send({
+        username: ADMIN_USERNAME,
+        password: ADMIN_PASSWORD,
+        captchaToken: issueCaptchaToken(testContext.db),
+      })
 
     expect(response.status).toBe(403)
     expect(response.body.error.code).toBe('CSRF_INVALID')
@@ -43,7 +48,11 @@ describe('admin authentication', () => {
       .post('/api/auth/login')
       .set('X-CSRF-Token', csrfToken)
       .set('Origin', 'http://localhost:5173')
-      .send({ username: ADMIN_USERNAME, password: ADMIN_PASSWORD })
+      .send({
+        username: ADMIN_USERNAME,
+        password: ADMIN_PASSWORD,
+        captchaToken: issueCaptchaToken(testContext.db),
+      })
 
     expect(login.status).toBe(200)
     expect(login.body.requiresTotp).toBe(false)
@@ -83,14 +92,22 @@ describe('admin authentication', () => {
       const response = await agent
         .post('/api/auth/login')
         .set('X-CSRF-Token', csrfToken)
-        .send({ username: ADMIN_USERNAME, password: 'wrong-password' })
+        .send({
+          username: ADMIN_USERNAME,
+          password: 'wrong-password',
+          captchaToken: issueCaptchaToken(testContext.db),
+        })
       expect(response.status).toBe(401)
     }
 
     const blocked = await agent
       .post('/api/auth/login')
       .set('X-CSRF-Token', csrfToken)
-      .send({ username: ADMIN_USERNAME, password: ADMIN_PASSWORD })
+      .send({
+        username: ADMIN_USERNAME,
+        password: ADMIN_PASSWORD,
+        captchaToken: issueCaptchaToken(testContext.db),
+      })
 
     expect(blocked.status).toBe(429)
     expect(blocked.body.error.code).toBe('RATE_LIMITED')
@@ -106,7 +123,11 @@ describe('admin authentication', () => {
       .post('/api/auth/login')
       .set('X-CSRF-Token', csrfToken)
       .set('Origin', 'https://evil.example')
-      .send({ username: ADMIN_USERNAME, password: ADMIN_PASSWORD })
+      .send({
+        username: ADMIN_USERNAME,
+        password: ADMIN_PASSWORD,
+        captchaToken: issueCaptchaToken(testContext.db),
+      })
 
     expect(response.status).toBe(403)
     expect(response.body.error.code).toBe('CSRF_ORIGIN_REJECTED')
@@ -120,7 +141,11 @@ describe('admin authentication', () => {
     const login = await agent
       .post('/api/auth/login')
       .set('X-CSRF-Token', csrfToken)
-      .send({ username: ADMIN_USERNAME, password: ADMIN_PASSWORD })
+      .send({
+        username: ADMIN_USERNAME,
+        password: ADMIN_PASSWORD,
+        captchaToken: issueCaptchaToken(testContext.db),
+      })
     expect(login.status).toBe(200)
     const authedCsrf = login.body.csrfToken as string
 
@@ -155,7 +180,11 @@ describe('admin authentication', () => {
     const passwordStep = await agent
       .post('/api/auth/login')
       .set('X-CSRF-Token', anonCsrf)
-      .send({ username: ADMIN_USERNAME, password: ADMIN_PASSWORD })
+      .send({
+        username: ADMIN_USERNAME,
+        password: ADMIN_PASSWORD,
+        captchaToken: issueCaptchaToken(testContext.db),
+      })
     expect(passwordStep.status).toBe(200)
     expect(passwordStep.body.requiresTotp).toBe(true)
     expect(typeof passwordStep.body.challengeToken).toBe('string')
@@ -183,7 +212,11 @@ describe('admin authentication', () => {
     const login = await agent
       .post('/api/auth/login')
       .set('X-CSRF-Token', csrfToken)
-      .send({ username: ADMIN_USERNAME, password: ADMIN_PASSWORD })
+      .send({
+        username: ADMIN_USERNAME,
+        password: ADMIN_PASSWORD,
+        captchaToken: issueCaptchaToken(testContext.db),
+      })
     const authedCsrf = login.body.csrfToken as string
 
     const setup = await agent
@@ -203,7 +236,11 @@ describe('admin authentication', () => {
     const passwordStep = await agent
       .post('/api/auth/login')
       .set('X-CSRF-Token', anonCsrf)
-      .send({ username: ADMIN_USERNAME, password: ADMIN_PASSWORD })
+      .send({
+        username: ADMIN_USERNAME,
+        password: ADMIN_PASSWORD,
+        captchaToken: issueCaptchaToken(testContext.db),
+      })
 
     const bad = await agent
       .post('/api/auth/login/totp')
@@ -221,11 +258,11 @@ describe('admin authentication', () => {
     const first = await createAgentContext()
     context = first.context
     await seedAdmin(first.context.db)
-    const firstCsrf = await loginAsAdmin(first.agent, first.csrfToken)
+    const firstCsrf = await loginAsAdmin(first.agent, first.csrfToken, first.context.db)
 
     const secondAgent = request.agent(first.context.app)
     const secondSession = await secondAgent.get('/api/auth/session')
-    await loginAsAdmin(secondAgent, secondSession.body.csrfToken as string)
+    await loginAsAdmin(secondAgent, secondSession.body.csrfToken as string, first.context.db)
 
     const wrong = await first.agent
       .post('/api/admin/security/password')
@@ -250,13 +287,21 @@ describe('admin authentication', () => {
     const oldPasswordLogin = await first.agent
       .post('/api/auth/login')
       .set('X-CSRF-Token', freshCsrf)
-      .send({ username: ADMIN_USERNAME, password: ADMIN_PASSWORD })
+      .send({
+        username: ADMIN_USERNAME,
+        password: ADMIN_PASSWORD,
+        captchaToken: issueCaptchaToken(first.context.db),
+      })
     expect(oldPasswordLogin.status).toBe(401)
 
     const newPasswordLogin = await first.agent
       .post('/api/auth/login')
       .set('X-CSRF-Token', freshCsrf)
-      .send({ username: ADMIN_USERNAME, password: newPassword })
+      .send({
+        username: ADMIN_USERNAME,
+        password: newPassword,
+        captchaToken: issueCaptchaToken(first.context.db),
+      })
     expect(newPasswordLogin.status).toBe(200)
   })
 })

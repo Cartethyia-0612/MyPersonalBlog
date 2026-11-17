@@ -12,6 +12,7 @@ import { createEnsureCsrfMiddleware, createRequireCsrfMiddleware } from './middl
 import { createSessionMiddleware } from './middleware/session'
 import { createAdminRouter } from './routes/admin'
 import { createAuthRouter } from './routes/auth'
+import { createCaptchaRouter } from './routes/captcha'
 import { createPublicRouter } from './routes/public'
 import { createSeoRouter } from './routes/seo'
 import { renderSpaHtml, getPageMeta } from './services/spaMeta'
@@ -33,11 +34,12 @@ export function createApp({ config, db }: AppDependencies): Express {
       contentSecurityPolicy: {
         directives: {
           defaultSrc: ["'self'"],
-          scriptSrc: ["'self'"],
+          scriptSrc: ["'self'", "'wasm-unsafe-eval'"],
           styleSrc: ["'self'", "'unsafe-inline'"],
           imgSrc: ["'self'", 'data:', 'https:'],
           mediaSrc: ["'self'", 'https:'],
           connectSrc: ["'self'"],
+          workerSrc: ["'self'", 'blob:'],
           fontSrc: ["'self'", 'data:'],
           objectSrc: ["'none'"],
           baseUri: ["'self'"],
@@ -70,6 +72,7 @@ export function createApp({ config, db }: AppDependencies): Express {
   app.use('/api', createEnsureCsrfMiddleware(config))
   app.use('/api', createRequireCsrfMiddleware(config))
 
+  app.use('/api/auth/captcha', createCaptchaRouter(db, config))
   app.use('/api/auth', createAuthRouter(db, config))
   app.use('/api/admin', createAdminRouter(db, config))
   app.use('/api', createPublicRouter(db))

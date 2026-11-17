@@ -21,10 +21,10 @@ export const authApi = {
   getSession(): Promise<SessionResponse> {
     return request<SessionResponse>('/api/auth/session')
   },
-  login(username: string, password: string): Promise<LoginResponse> {
+  login(username: string, password: string, captchaToken: string): Promise<LoginResponse> {
     return request<LoginResponse>('/api/auth/login', {
       method: 'POST',
-      body: JSON.stringify({ username, password }),
+      body: JSON.stringify({ username, password, captchaToken }),
     })
   },
   verifyTotp(challengeToken: string, code: string): Promise<LoginResponse> {
