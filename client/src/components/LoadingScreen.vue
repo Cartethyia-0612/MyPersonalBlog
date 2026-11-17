@@ -89,8 +89,8 @@ import BrandMark from '@/components/BrandMark.vue'
   border-right: 1px solid var(--brand-strong);
   white-space: nowrap;
   animation:
-    typing 1.9s steps(42, end) infinite,
-    caret 800ms step-end infinite;
+    typing 1.35s steps(42, end) 1 forwards,
+    caret 600ms step-end 2;
 }
 
 .loading-screen__track {
@@ -121,15 +121,18 @@ import BrandMark from '@/components/BrandMark.vue'
   0% {
     width: 0;
   }
-  70%,
   100% {
     width: 100%;
   }
 }
 
 @keyframes caret {
-  50% {
+  0%,
+  100% {
     border-color: transparent;
+  }
+  50% {
+    border-color: var(--brand-strong);
   }
 }
 
