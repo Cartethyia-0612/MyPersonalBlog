@@ -1,10 +1,10 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { onMounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 
 import BrandMark from '@/components/BrandMark.vue'
+import MarkdownContent from '@/components/MarkdownContent.vue'
 import { publicApi } from '@/lib/api'
-import { renderMarkdown } from '@/lib/markdown'
 import { useSeo } from '@/lib/seo'
 import { useSiteStore } from '@/stores/site'
 
@@ -12,8 +12,6 @@ const siteStore = useSiteStore()
 const contentMd = ref('')
 const loading = ref(true)
 const error = ref('')
-
-const html = computed(() => renderMarkdown(contentMd.value))
 
 async function loadAbout(): Promise<void> {
   loading.value = true
@@ -68,7 +66,7 @@ useSeo(() => ({
         </div>
 
         <template v-else>
-          <div v-if="html" class="markdown-body" v-html="html" />
+          <MarkdownContent v-if="contentMd.trim()" :source="contentMd" />
           <div v-else class="empty-state">站长还没有填写关于页。</div>
         </template>
       </main>

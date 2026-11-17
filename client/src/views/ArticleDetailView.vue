@@ -3,9 +3,9 @@ import { computed, ref, watch } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 
 import BrandMark from '@/components/BrandMark.vue'
+import MarkdownContent from '@/components/MarkdownContent.vue'
 import { publicApi } from '@/lib/api'
 import { formatDate, readingTime } from '@/lib/format'
-import { renderMarkdown } from '@/lib/markdown'
 import { useSeo } from '@/lib/seo'
 import type { ArticleDetail } from '@/types/content'
 
@@ -18,7 +18,6 @@ let requestId = 0
 
 const slug = computed(() => (typeof route.params.slug === 'string' ? route.params.slug : ''))
 
-const html = computed(() => (article.value ? renderMarkdown(article.value.contentMd) : ''))
 const reading = computed(() => (article.value ? readingTime(article.value.contentMd) : ''))
 
 async function loadArticle(): Promise<void> {
@@ -121,7 +120,9 @@ useSeo(() => ({
           <img :src="article.coverUrl" :alt="article.title" />
         </figure>
 
-        <article class="markdown-body" v-html="html" />
+        <article class="article-markdown">
+          <MarkdownContent :source="article.contentMd" />
+        </article>
 
         <div class="article-end">
           <span class="article-end__line" />
@@ -225,7 +226,7 @@ useSeo(() => ({
   object-fit: cover;
 }
 
-.markdown-body {
+.article-markdown {
   margin-top: 38px;
 }
 

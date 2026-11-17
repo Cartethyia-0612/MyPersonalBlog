@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { nextTick, ref, useId } from 'vue'
 
-import { renderMarkdown } from '@/lib/markdown'
+import MarkdownContent from '@/components/MarkdownContent.vue'
 
 const props = withDefaults(
   defineProps<{
@@ -124,7 +124,7 @@ function prefixLine(prefix: string): void {
     </div>
 
     <div v-else class="md-editor__preview" :style="{ minHeight }">
-      <div v-if="modelValue.trim()" class="markdown-body" v-html="renderMarkdown(modelValue)" />
+      <MarkdownContent v-if="modelValue.trim()" :source="modelValue" />
       <p v-else class="md-editor__empty">还没有内容。切回编辑模式开始写吧。</p>
     </div>
   </div>
