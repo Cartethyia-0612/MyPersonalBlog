@@ -11,6 +11,7 @@ authenticator.options = { window: 1 }
 interface TotpChallengePayload {
   sub: number
   purpose: 'totp-login'
+  remember: boolean
   jti: string
   exp: number
 }
@@ -45,11 +46,12 @@ export function verifyTotpCode(secret: string, code: string): boolean {
   }
 }
 
-export function createLoginChallenge(userId: number, appSecret: string): string {
+export function createLoginChallenge(userId: number, appSecret: string, remember: boolean): string {
   return signPayload(
     {
       sub: userId,
       purpose: 'totp-login',
+      remember,
       jti: randomToken(12),
     },
     appSecret,
@@ -65,5 +67,5 @@ export function verifyLoginChallenge(
   if (!payload || payload.purpose !== 'totp-login' || typeof payload.sub !== 'number') {
     return null
   }
-  return payload
+  return { ...payload, remember: payload.remember === true }
 }

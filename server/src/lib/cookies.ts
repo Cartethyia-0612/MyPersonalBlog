@@ -13,15 +13,20 @@ function baseCookieOptions(config: AppConfig): CookieOptions {
   }
 }
 
-function maxAgeMs(config: AppConfig): number {
-  return config.sessionTtlDays * 24 * 60 * 60 * 1000
+function maxAgeMs(ttlDays: number): number {
+  return ttlDays * 24 * 60 * 60 * 1000
 }
 
-export function setSessionCookie(res: Response, token: string, config: AppConfig): void {
+export function setSessionCookie(
+  res: Response,
+  token: string,
+  config: AppConfig,
+  ttlDays = config.sessionTtlDays,
+): void {
   res.cookie(SESSION_COOKIE, token, {
     ...baseCookieOptions(config),
     httpOnly: true,
-    maxAge: maxAgeMs(config),
+    maxAge: maxAgeMs(ttlDays),
   })
 }
 
@@ -29,11 +34,16 @@ export function clearSessionCookie(res: Response, config: AppConfig): void {
   res.clearCookie(SESSION_COOKIE, baseCookieOptions(config))
 }
 
-export function setCsrfCookie(res: Response, token: string, config: AppConfig): void {
+export function setCsrfCookie(
+  res: Response,
+  token: string,
+  config: AppConfig,
+  ttlDays = config.sessionTtlDays,
+): void {
   res.cookie(CSRF_COOKIE, token, {
     ...baseCookieOptions(config),
     httpOnly: false,
-    maxAge: maxAgeMs(config),
+    maxAge: maxAgeMs(ttlDays),
   })
 }
 

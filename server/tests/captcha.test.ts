@@ -5,6 +5,7 @@ import { closeDatabase, openDatabase, type Db } from '../src/db'
 import {
   consumeLoginToken,
   consumeNonce,
+  consumeSensitiveToken,
   storeLoginToken,
   tokenKeyFromToken,
 } from '../src/services/captcha'
@@ -64,6 +65,16 @@ describe('used token replay protection', () => {
   it('refuses to store a token that is already expired', () => {
     db = openDatabase(':memory:')
     expect(storeLoginToken(db, 'already-expired', Date.now() - 1)).toBe(false)
+  })
+
+  it('binds sensitive-action tokens to the authenticated user', () => {
+    db = openDatabase(':memory:')
+    expect(storeLoginToken(db, 'bound-token', Date.now() + 60_000, 7)).toBe(true)
+
+    expect(consumeLoginToken(db, 'bound-token')).toBe('missing')
+    expect(consumeSensitiveToken(db, 'bound-token', 8)).toBe('missing')
+    expect(consumeSensitiveToken(db, 'bound-token', 7)).toBe('ok')
+    expect(consumeSensitiveToken(db, 'bound-token', 7)).toBe('used')
   })
 })
 

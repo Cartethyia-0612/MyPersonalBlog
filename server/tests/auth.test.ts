@@ -9,6 +9,7 @@ import {
   createAgentContext,
   createTestContext,
   issueCaptchaToken,
+  issueSensitiveCaptchaToken,
   loginAsAdmin,
   seedAdmin,
   type TestContext,
@@ -81,6 +82,57 @@ describe('admin authentication', () => {
 
     const afterLogout = await agent.get('/api/auth/session')
     expect(afterLogout.body.authenticated).toBe(false)
+  })
+
+  it('uses a 1-day session by default and 30 days when remembering the browser', async () => {
+    const { agent, csrfToken, context: testContext } = await createAgentContext()
+    context = testContext
+    await seedAdmin(testContext.db)
+
+    const remembered = await agent
+      .post('/api/auth/login')
+      .set('X-CSRF-Token', csrfToken)
+      .send({
+        username: ADMIN_USERNAME,
+        password: ADMIN_PASSWORD,
+        captchaToken: issueCaptchaToken(testContext.db),
+        rememberBrowser: true,
+      })
+    expect(remembered.status).toBe(200)
+    const rememberedCookies = remembered.headers['set-cookie'] as unknown as string[]
+    expect(rememberedCookies.find((cookie) => cookie.startsWith('eshi_session='))).toContain(
+      'Max-Age=2592000',
+    )
+
+    const rememberedRow = testContext.db
+      .prepare('SELECT expires_at FROM sessions ORDER BY rowid DESC LIMIT 1')
+      .get() as { expires_at: string }
+    const rememberedDays =
+      (Date.parse(rememberedRow.expires_at) - Date.now()) / (24 * 60 * 60 * 1000)
+    expect(rememberedDays).toBeGreaterThan(29.9)
+
+    const shortAgent = request.agent(testContext.app)
+    const shortSession = await shortAgent.get('/api/auth/session')
+    const shortLogin = await shortAgent
+      .post('/api/auth/login')
+      .set('X-CSRF-Token', shortSession.body.csrfToken as string)
+      .send({
+        username: ADMIN_USERNAME,
+        password: ADMIN_PASSWORD,
+        captchaToken: issueCaptchaToken(testContext.db),
+      })
+    expect(shortLogin.status).toBe(200)
+    const shortCookies = shortLogin.headers['set-cookie'] as unknown as string[]
+    expect(shortCookies.find((cookie) => cookie.startsWith('eshi_session='))).toContain(
+      'Max-Age=86400',
+    )
+
+    const shortRow = testContext.db
+      .prepare('SELECT expires_at FROM sessions ORDER BY rowid DESC LIMIT 1')
+      .get() as { expires_at: string }
+    const shortDays = (Date.parse(shortRow.expires_at) - Date.now()) / (24 * 60 * 60 * 1000)
+    expect(shortDays).toBeGreaterThan(0.9)
+    expect(shortDays).toBeLessThan(1.1)
   })
 
   it('rate limits repeated failed password attempts', async () => {
@@ -163,6 +215,7 @@ describe('admin authentication', () => {
     const enable = await agent
       .post('/api/admin/security/totp/enable')
       .set('X-CSRF-Token', authedCsrf)
+      .set('X-Captcha-Token', issueSensitiveCaptchaToken(testContext.db))
       .send({ code })
     expect(enable.status).toBe(200)
     expect(enable.body.totpEnabled).toBe(true)
@@ -184,6 +237,7 @@ describe('admin authentication', () => {
         username: ADMIN_USERNAME,
         password: ADMIN_PASSWORD,
         captchaToken: issueCaptchaToken(testContext.db),
+        rememberBrowser: true,
       })
     expect(passwordStep.status).toBe(200)
     expect(passwordStep.body.requiresTotp).toBe(true)
@@ -199,6 +253,10 @@ describe('admin authentication', () => {
     expect(totpLogin.status).toBe(200)
     expect(totpLogin.body.requiresTotp).toBe(false)
     expect(totpLogin.body.user.totpEnabled).toBe(true)
+    const totpCookies = totpLogin.headers['set-cookie'] as unknown as string[]
+    expect(totpCookies.find((cookie) => cookie.startsWith('eshi_session='))).toContain(
+      'Max-Age=2592000',
+    )
 
     const session = await agent.get('/api/auth/session')
     expect(session.body.authenticated).toBe(true)
@@ -227,6 +285,7 @@ describe('admin authentication', () => {
     await agent
       .post('/api/admin/security/totp/enable')
       .set('X-CSRF-Token', authedCsrf)
+      .set('X-Captcha-Token', issueSensitiveCaptchaToken(testContext.db))
       .send({ code: authenticator.generate(secret) })
 
     await agent.post('/api/auth/logout').set('X-CSRF-Token', authedCsrf)
@@ -240,6 +299,7 @@ describe('admin authentication', () => {
         username: ADMIN_USERNAME,
         password: ADMIN_PASSWORD,
         captchaToken: issueCaptchaToken(testContext.db),
+        rememberBrowser: true,
       })
 
     const bad = await agent
@@ -267,6 +327,7 @@ describe('admin authentication', () => {
     const wrong = await first.agent
       .post('/api/admin/security/password')
       .set('X-CSRF-Token', firstCsrf)
+      .set('X-Captcha-Token', issueSensitiveCaptchaToken(first.context.db))
       .send({ currentPassword: 'wrong-password', newPassword: 'new-secure-password-456' })
     expect(wrong.status).toBe(400)
 
@@ -274,6 +335,7 @@ describe('admin authentication', () => {
     const changed = await first.agent
       .post('/api/admin/security/password')
       .set('X-CSRF-Token', firstCsrf)
+      .set('X-Captcha-Token', issueSensitiveCaptchaToken(first.context.db))
       .send({ currentPassword: ADMIN_PASSWORD, newPassword })
     expect(changed.status).toBe(200)
 

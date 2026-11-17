@@ -48,6 +48,11 @@ withDefaults(
       <path d="M12 3 5 6v5c0 4.6 2.9 8.4 7 10 4.1-1.6 7-5.4 7-10V6l-7-3Z" />
       <path d="M9.5 12l1.7 1.7L15 10" />
     </template>
+    <template v-else-if="name === 'devices'">
+      <rect x="3" y="4" width="12" height="9" rx="1.5" />
+      <path d="M7 20h4M9 13v7" />
+      <rect x="17" y="10" width="4" height="10" rx="1" />
+    </template>
     <template v-else-if="name === 'music'">
       <path d="M9 18V5l11-2v12" />
       <circle cx="6" cy="18" r="3" />

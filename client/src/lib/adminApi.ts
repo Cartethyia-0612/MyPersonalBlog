@@ -7,6 +7,7 @@ import type {
   ArticleInput,
   Friend,
   FriendInput,
+  LoginDevice,
   LoginResponse,
   SecurityInfo,
   SessionResponse,
@@ -21,10 +22,15 @@ export const authApi = {
   getSession(): Promise<SessionResponse> {
     return request<SessionResponse>('/api/auth/session')
   },
-  login(username: string, password: string, captchaToken: string): Promise<LoginResponse> {
+  login(
+    username: string,
+    password: string,
+    captchaToken: string,
+    rememberBrowser: boolean,
+  ): Promise<LoginResponse> {
     return request<LoginResponse>('/api/auth/login', {
       method: 'POST',
-      body: JSON.stringify({ username, password, captchaToken }),
+      body: JSON.stringify({ username, password, captchaToken, rememberBrowser }),
     })
   },
   verifyTotp(challengeToken: string, code: string): Promise<LoginResponse> {
@@ -116,24 +122,50 @@ export const adminApi = {
   getSecurity(): Promise<SecurityInfo> {
     return request<SecurityInfo>('/api/admin/security')
   },
-  changePassword(currentPassword: string, newPassword: string): Promise<{ ok: true }> {
+  getDevices(): Promise<{ items: LoginDevice[] }> {
+    return request<{ items: LoginDevice[] }>('/api/admin/security/devices')
+  },
+  revokeDevice(id: string, captchaToken: string): Promise<{ ok: true }> {
+    return request<{ ok: true }>(`/api/admin/security/devices/${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+      headers: { 'X-Captcha-Token': captchaToken },
+    })
+  },
+  revokeAllDevices(captchaToken: string): Promise<{ ok: true; count: number }> {
+    return request<{ ok: true; count: number }>('/api/admin/security/devices', {
+      method: 'DELETE',
+      headers: { 'X-Captcha-Token': captchaToken },
+    })
+  },
+  changePassword(
+    currentPassword: string,
+    newPassword: string,
+    captchaToken: string,
+  ): Promise<{ ok: true }> {
     return request<{ ok: true }>('/api/admin/security/password', {
       method: 'POST',
+      headers: { 'X-Captcha-Token': captchaToken },
       body: JSON.stringify({ currentPassword, newPassword }),
     })
   },
   setupTotp(): Promise<TotpSetupResponse> {
     return request<TotpSetupResponse>('/api/admin/security/totp/setup', { method: 'POST' })
   },
-  enableTotp(code: string): Promise<{ ok: true; totpEnabled: true }> {
+  enableTotp(code: string, captchaToken: string): Promise<{ ok: true; totpEnabled: true }> {
     return request<{ ok: true; totpEnabled: true }>('/api/admin/security/totp/enable', {
       method: 'POST',
+      headers: { 'X-Captcha-Token': captchaToken },
       body: JSON.stringify({ code }),
     })
   },
-  disableTotp(password: string, code: string): Promise<{ ok: true; totpEnabled: false }> {
+  disableTotp(
+    password: string,
+    code: string,
+    captchaToken: string,
+  ): Promise<{ ok: true; totpEnabled: false }> {
     return request<{ ok: true; totpEnabled: false }>('/api/admin/security/totp/disable', {
       method: 'POST',
+      headers: { 'X-Captcha-Token': captchaToken },
       body: JSON.stringify({ password, code }),
     })
   },

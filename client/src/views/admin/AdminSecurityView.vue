@@ -1,7 +1,9 @@
 <script setup lang="ts">
-import { onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
+import { RouterLink } from 'vue-router'
 
 import AdminPageHeader from '@/components/admin/AdminPageHeader.vue'
+import SensitiveActionDialog from '@/components/admin/SensitiveActionDialog.vue'
 import { adminApi } from '@/lib/adminApi'
 import { toErrorMessage } from '@/lib/errors'
 import { useSeo } from '@/lib/seo'
@@ -17,18 +19,49 @@ const loading = ref(true)
 const error = ref('')
 
 const passwordForm = reactive({ currentPassword: '', newPassword: '', confirmPassword: '' })
-const passwordSaving = ref(false)
 const passwordError = ref('')
 
 const setup = ref<TotpSetupResponse | null>(null)
 const code = ref('')
 const setupLoading = ref(false)
-const enableLoading = ref(false)
 const totpError = ref('')
 
 const disableForm = reactive({ password: '', code: '' })
-const disableLoading = ref(false)
 const disableError = ref('')
+
+type SensitiveAction = 'password' | 'enable-totp' | 'disable-totp'
+const action = ref<SensitiveAction | null>(null)
+const actionOpen = ref(false)
+const actionLoading = ref(false)
+const actionError = ref('')
+const actionDialog = ref<InstanceType<typeof SensitiveActionDialog> | null>(null)
+
+const actionTitle = computed(() => {
+  if (action.value === 'password') return '修改管理密码'
+  if (action.value === 'enable-totp') return '开启两步验证'
+  if (action.value === 'disable-totp') return '关闭两步验证'
+  return '人机验证'
+})
+
+const actionDescription = computed(() => {
+  if (action.value === 'password') {
+    return '修改密码会吊销其他设备的登录状态，请先完成人机验证。'
+  }
+  if (action.value === 'enable-totp') {
+    return '开启两步验证会改变账号的登录方式，请先完成人机验证。'
+  }
+  if (action.value === 'disable-totp') {
+    return '关闭两步验证会降低账号安全等级，请先完成人机验证。'
+  }
+  return ''
+})
+
+const actionConfirmLabel = computed(() => {
+  if (action.value === 'password') return '验证并更新密码'
+  if (action.value === 'enable-totp') return '验证并开启'
+  if (action.value === 'disable-totp') return '验证并关闭'
+  return '验证并继续'
+})
 
 async function loadSecurity(): Promise<void> {
   loading.value = true
@@ -42,7 +75,19 @@ async function loadSecurity(): Promise<void> {
   }
 }
 
-async function changePassword(): Promise<void> {
+function openAction(next: SensitiveAction): void {
+  actionError.value = ''
+  action.value = next
+  actionOpen.value = true
+}
+
+function closeAction(): void {
+  actionOpen.value = false
+  action.value = null
+  actionError.value = ''
+}
+
+function changePassword(): void {
   passwordError.value = ''
   if (!passwordForm.currentPassword) {
     passwordError.value = '请输入当前密码'
@@ -57,18 +102,7 @@ async function changePassword(): Promise<void> {
     return
   }
 
-  passwordSaving.value = true
-  try {
-    await adminApi.changePassword(passwordForm.currentPassword, passwordForm.newPassword)
-    passwordForm.currentPassword = ''
-    passwordForm.newPassword = ''
-    passwordForm.confirmPassword = ''
-    toast.notify('密码已更新，其他设备的登录状态已失效', 'success')
-  } catch (err) {
-    passwordError.value = toErrorMessage(err, '密码修改失败')
-  } finally {
-    passwordSaving.value = false
-  }
+  openAction('password')
 }
 
 async function generateTotpSetup(): Promise<void> {
@@ -84,27 +118,16 @@ async function generateTotpSetup(): Promise<void> {
   }
 }
 
-async function enableTotp(): Promise<void> {
+function enableTotp(): void {
   totpError.value = ''
   if (!/^\d{6}$/.test(code.value)) {
     totpError.value = '请输入验证器中的 6 位动态验证码'
     return
   }
-  enableLoading.value = true
-  try {
-    await adminApi.enableTotp(code.value)
-    setup.value = null
-    code.value = ''
-    toast.notify('TOTP 两步验证已开启', 'success')
-    await Promise.all([loadSecurity(), authStore.fetchSession(true)])
-  } catch (err) {
-    totpError.value = toErrorMessage(err, '启用失败，请核对验证码')
-  } finally {
-    enableLoading.value = false
-  }
+  openAction('enable-totp')
 }
 
-async function disableTotp(): Promise<void> {
+function disableTotp(): void {
   disableError.value = ''
   if (!disableForm.password) {
     disableError.value = '请输入当前密码'
@@ -114,17 +137,53 @@ async function disableTotp(): Promise<void> {
     disableError.value = '请输入 6 位动态验证码'
     return
   }
-  disableLoading.value = true
+  openAction('disable-totp')
+}
+
+async function onActionConfirm(token: string): Promise<void> {
+  const current = action.value
+  if (!current) return
+
+  actionLoading.value = true
+  actionError.value = ''
   try {
-    await adminApi.disableTotp(disableForm.password, disableForm.code)
+    if (current === 'password') {
+      await adminApi.changePassword(passwordForm.currentPassword, passwordForm.newPassword, token)
+      passwordForm.currentPassword = ''
+      passwordForm.newPassword = ''
+      passwordForm.confirmPassword = ''
+      closeAction()
+      toast.notify('密码已更新，其他设备的登录状态已失效', 'success')
+      return
+    }
+
+    if (current === 'enable-totp') {
+      await adminApi.enableTotp(code.value, token)
+      setup.value = null
+      code.value = ''
+      closeAction()
+      toast.notify('TOTP 两步验证已开启', 'success')
+      await Promise.all([loadSecurity(), authStore.fetchSession(true)])
+      return
+    }
+
+    await adminApi.disableTotp(disableForm.password, disableForm.code, token)
     disableForm.password = ''
     disableForm.code = ''
+    closeAction()
     toast.notify('TOTP 两步验证已关闭', 'info')
     await Promise.all([loadSecurity(), authStore.fetchSession(true)])
   } catch (err) {
-    disableError.value = toErrorMessage(err, '关闭失败，请检查密码与验证码')
+    const fallback =
+      current === 'password'
+        ? '密码修改失败'
+        : current === 'enable-totp'
+          ? '启用失败，请核对验证码'
+          : '关闭失败，请检查密码与验证码'
+    actionError.value = toErrorMessage(err, fallback)
+    actionDialog.value?.reset()
   } finally {
-    disableLoading.value = false
+    actionLoading.value = false
   }
 }
 
@@ -144,7 +203,7 @@ useSeo(() => ({
     <AdminPageHeader
       eyebrow="SYSTEM / SECURITY"
       title="登录与安全"
-      description="管理后台密码与 TOTP 两步验证。密码使用 bcrypt 哈希存储，TOTP 密钥使用 AES-256-GCM 加密后入库。"
+      description="密码使用 bcrypt 哈希存储，TOTP 密钥使用 AES-256-GCM 加密。敏感操作需要人机验证，登录设备可在子页管理。"
     />
 
     <div v-if="loading" class="admin-loading admin-card"><span /><span /><span /></div>
@@ -221,8 +280,8 @@ useSeo(() => ({
               </label>
             </div>
             <p v-if="passwordError" class="admin-error" role="alert">{{ passwordError }}</p>
-            <button type="submit" class="btn btn--primary" :disabled="passwordSaving">
-              {{ passwordSaving ? '更新中…' : '更新密码' }}
+            <button type="submit" class="btn btn--primary" :disabled="actionLoading">
+              {{ actionLoading ? '更新中…' : '更新密码' }}
             </button>
           </form>
         </section>
@@ -275,8 +334,8 @@ useSeo(() => ({
               </label>
             </div>
             <p v-if="disableError" class="admin-error" role="alert">{{ disableError }}</p>
-            <button type="submit" class="btn btn--danger" :disabled="disableLoading">
-              {{ disableLoading ? '关闭中…' : '关闭两步验证' }}
+            <button type="submit" class="btn btn--danger" :disabled="actionLoading">
+              {{ actionLoading ? '关闭中…' : '关闭两步验证' }}
             </button>
           </form>
         </div>
@@ -322,15 +381,15 @@ useSeo(() => ({
                 <button
                   type="button"
                   class="btn btn--primary"
-                  :disabled="enableLoading"
+                  :disabled="actionLoading"
                   @click="enableTotp"
                 >
-                  {{ enableLoading ? '验证中…' : '验证并开启' }}
+                  {{ actionLoading ? '验证中…' : '验证并开启' }}
                 </button>
                 <button
                   type="button"
                   class="btn btn--ghost"
-                  :disabled="enableLoading"
+                  :disabled="actionLoading"
                   @click="setup = null"
                 >
                   取消
@@ -340,6 +399,33 @@ useSeo(() => ({
           </div>
         </div>
       </section>
+
+      <section class="admin-card devices-entry">
+        <div class="devices-entry__copy">
+          <p class="mono security-panel__eyebrow">DEVICES</p>
+          <h2>登录设备管理</h2>
+          <p>
+            查看最近登录的浏览器与
+            IP，单独下线其他设备，或一键退登所有设备。下线操作需要再次完成人机验证。
+          </p>
+        </div>
+        <RouterLink class="btn btn--sm" to="/admin/security/devices">
+          管理登录设备
+          <span aria-hidden="true">→</span>
+        </RouterLink>
+      </section>
+
+      <SensitiveActionDialog
+        ref="actionDialog"
+        :open="actionOpen"
+        :title="actionTitle"
+        :description="actionDescription"
+        :confirm-label="actionConfirmLabel"
+        :loading="actionLoading"
+        :error="actionError"
+        @confirm="onActionConfirm"
+        @cancel="closeAction"
+      />
     </template>
   </div>
 </template>
@@ -534,6 +620,32 @@ useSeo(() => ({
   justify-self: start;
 }
 
+.devices-entry {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  margin-top: 14px;
+  padding: 20px;
+}
+
+.devices-entry__copy h2 {
+  margin-top: 5px;
+  font-size: 1.1rem;
+}
+
+.devices-entry__copy p:last-child {
+  max-width: 680px;
+  margin-top: 7px;
+  color: var(--muted);
+  font-size: 0.78rem;
+  line-height: 1.8;
+}
+
+.devices-entry .btn {
+  flex: none;
+}
+
 @media (max-width: 900px) {
   .security-grid,
   .totp-disable {
@@ -546,6 +658,14 @@ useSeo(() => ({
 
   .totp-qr {
     width: 220px;
+  }
+}
+
+@media (max-width: 620px) {
+  .devices-entry {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 14px;
   }
 }
 </style>

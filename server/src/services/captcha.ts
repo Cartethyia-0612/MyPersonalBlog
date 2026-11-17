@@ -46,17 +46,22 @@ export function consumeNonce(db: Db, signatureHex: string, ttlMs: number): boole
 }
 
 /** Store the token returned by a successful redeem; it is still unconsumed. */
-export function storeLoginToken(db: Db, tokenKey: string, expiresAt: number): boolean {
+export function storeLoginToken(
+  db: Db,
+  tokenKey: string,
+  expiresAt: number,
+  userId: number | null = null,
+): boolean {
   const now = Date.now()
   if (!Number.isFinite(expiresAt) || expiresAt <= now) return false
 
   const result = db
     .prepare(
       `INSERT OR IGNORE INTO used_tokens
-         (purpose, token_hash, expires_at, consumed_at, created_at)
-       VALUES (?, ?, ?, NULL, ?)`,
+         (purpose, token_hash, expires_at, consumed_at, created_at, user_id)
+       VALUES (?, ?, ?, NULL, ?, ?)`,
     )
-    .run(LOGIN_PURPOSE, tokenKey, expiresAt, new Date(now).toISOString())
+    .run(LOGIN_PURPOSE, tokenKey, expiresAt, new Date(now).toISOString(), userId)
 
   cleanupExpiredTokens(db, now)
   return result.changes === 1
@@ -64,25 +69,28 @@ export function storeLoginToken(db: Db, tokenKey: string, expiresAt: number): bo
 
 export type LoginTokenState = 'ok' | 'missing' | 'expired' | 'used'
 
-/**
- * Atomically consume a login token. Missing, expired and already-consumed
- * tokens never allow a login attempt through.
- */
-export function consumeLoginToken(db: Db, tokenKey: string): LoginTokenState {
+function consumeToken(
+  db: Db,
+  tokenKey: string,
+  userWhere: string,
+  userParams: unknown[],
+): LoginTokenState {
   const now = Date.now()
   const row = db
     .prepare(
       `SELECT expires_at, consumed_at FROM used_tokens
-       WHERE purpose = ? AND token_hash = ?`,
+       WHERE purpose = ? AND token_hash = ? AND ${userWhere}`,
     )
-    .get(LOGIN_PURPOSE, tokenKey) as { expires_at: number; consumed_at: string | null } | undefined
+    .get(LOGIN_PURPOSE, tokenKey, ...userParams) as
+    { expires_at: number; consumed_at: string | null } | undefined
 
   if (!row) return 'missing'
 
   if (row.expires_at <= now) {
-    db.prepare('DELETE FROM used_tokens WHERE purpose = ? AND token_hash = ?').run(
+    db.prepare(`DELETE FROM used_tokens WHERE purpose = ? AND token_hash = ? AND ${userWhere}`).run(
       LOGIN_PURPOSE,
       tokenKey,
+      ...userParams,
     )
     return 'expired'
   }
@@ -92,11 +100,25 @@ export function consumeLoginToken(db: Db, tokenKey: string): LoginTokenState {
   const result = db
     .prepare(
       `UPDATE used_tokens SET consumed_at = ?
-       WHERE purpose = ? AND token_hash = ? AND consumed_at IS NULL AND expires_at > ?`,
+       WHERE purpose = ? AND token_hash = ? AND ${userWhere}
+         AND consumed_at IS NULL AND expires_at > ?`,
     )
-    .run(new Date(now).toISOString(), LOGIN_PURPOSE, tokenKey, now)
+    .run(new Date(now).toISOString(), LOGIN_PURPOSE, tokenKey, ...userParams, now)
 
   return result.changes === 1 ? 'ok' : 'used'
+}
+
+/**
+ * Consume an unauthenticated login token. Tokens issued from an authenticated
+ * sensitive-action dialog carry a user_id and are deliberately excluded here.
+ */
+export function consumeLoginToken(db: Db, tokenKey: string): LoginTokenState {
+  return consumeToken(db, tokenKey, 'user_id IS NULL', [])
+}
+
+/** Consume a token issued while signed in, scoped to the same user. */
+export function consumeSensitiveToken(db: Db, tokenKey: string, userId: number): LoginTokenState {
+  return consumeToken(db, tokenKey, 'user_id = ?', [userId])
 }
 
 export function cleanupExpiredTokens(db: Db, now = Date.now()): void {
@@ -118,6 +140,7 @@ export async function redeemCaptcha(
   db: Db,
   config: AppConfig,
   body: ValidateChallengeBody,
+  userId: number | null = null,
 ): Promise<RedeemCaptchaResult> {
   const result = await validateChallenge(config.capSecret, body, {
     scope: CAPTCHA_SCOPE,
@@ -127,7 +150,7 @@ export async function redeemCaptcha(
   if (!result.success) return { success: false, reason: result.reason }
   if (!result.tokenKey) return { success: false, reason: 'missing_token_key' }
 
-  if (!storeLoginToken(db, result.tokenKey, result.expires)) {
+  if (!storeLoginToken(db, result.tokenKey, result.expires, userId)) {
     return { success: false, reason: 'token_store_failed' }
   }
 

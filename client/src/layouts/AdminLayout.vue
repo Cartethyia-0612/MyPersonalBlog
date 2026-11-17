@@ -36,7 +36,8 @@ const navGroups = [
     items: [
       { label: '站点设置', to: '/admin/settings', icon: 'settings' },
       { label: 'SEO 推送', to: '/admin/seo', icon: 'seo' },
-      { label: '登录与安全', to: '/admin/security', icon: 'security' },
+      { label: '登录与安全', to: '/admin/security', icon: 'security', exact: true },
+      { label: '登录设备', to: '/admin/security/devices', icon: 'devices' },
     ],
   },
 ]

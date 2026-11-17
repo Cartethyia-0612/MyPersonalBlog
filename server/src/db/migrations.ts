@@ -122,4 +122,12 @@ export const migrations: Migration[] = [
       CREATE INDEX idx_used_tokens_expires ON used_tokens(expires_at);
     `,
   },
+  {
+    version: 3,
+    name: 'bind_used_tokens_to_users',
+    sql: `
+      ALTER TABLE used_tokens ADD COLUMN user_id INTEGER;
+      CREATE INDEX idx_used_tokens_user ON used_tokens(user_id, purpose);
+    `,
+  },
 ]

@@ -33,11 +33,18 @@ export function createCaptchaRouter(db: Db, config: AppConfig): Router {
       throw new AppError(400, 'CAPTCHA_INVALID_REQUEST', '人机验证请求不合法')
     }
 
-    const result = await redeemCaptcha(db, config, {
-      token: body.token,
-      solutions: body.solutions as ValidateChallengeBody['solutions'],
-      ...(body.instr !== undefined ? { instr: body.instr as ValidateChallengeBody['instr'] } : {}),
-    })
+    const result = await redeemCaptcha(
+      db,
+      config,
+      {
+        token: body.token,
+        solutions: body.solutions as ValidateChallengeBody['solutions'],
+        ...(body.instr !== undefined
+          ? { instr: body.instr as ValidateChallengeBody['instr'] }
+          : {}),
+      },
+      req.currentUser?.id ?? null,
+    )
 
     if (!result.success) {
       res.status(400).json({ success: false, reason: result.reason })

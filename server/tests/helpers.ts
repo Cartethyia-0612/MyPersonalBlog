@@ -35,7 +35,8 @@ export function createTestContext(): TestContext {
     dbPath: ':memory:',
     uploadDir: path.join(os.tmpdir(), 'eshi-test-uploads'),
     allowedOrigins: new Set(['http://localhost:5173', 'http://127.0.0.1:5173']),
-    sessionTtlDays: 7,
+    sessionTtlDays: 1,
+    rememberSessionTtlDays: 30,
   }
 
   return {
@@ -91,17 +92,29 @@ export async function loginAsAdmin(
 }
 
 /**
- * Insert a redeem-equivalent login token directly into used_tokens. Tests that
- * are not about Cap's proof-of-work can then exercise the single-use path.
+ * Insert a redeem-equivalent token directly into used_tokens. Tests that are
+ * not about Cap's proof-of-work can then exercise the single-use path.
  */
-export function issueCaptchaToken(db: Db, ttlMs = 10 * 60 * 1000): string {
+export function issueCaptchaToken(
+  db: Db,
+  ttlMs = 10 * 60 * 1000,
+  userId: number | null = null,
+): string {
   const id = randomBytes(8).toString('hex')
   const secret = randomBytes(32).toString('base64url')
   const token = `${id}:${secret}`
   const key = tokenKeyFromToken(token)
   if (!key) throw new Error('Failed to derive a test CAPTCHA token key')
-  if (!storeLoginToken(db, key, Date.now() + ttlMs)) {
+  if (!storeLoginToken(db, key, Date.now() + ttlMs, userId)) {
     throw new Error('Failed to store a test CAPTCHA token')
   }
   return token
+}
+
+/** Issue a token bound to the seeded admin for a sensitive-action test. */
+export function issueSensitiveCaptchaToken(db: Db, ttlMs = 10 * 60 * 1000): string {
+  const user = db.prepare('SELECT id FROM users WHERE username = ?').get(ADMIN_USERNAME) as
+    { id: number } | undefined
+  if (!user) throw new Error('Seed the admin before issuing a sensitive token')
+  return issueCaptchaToken(db, ttlMs, user.id)
 }

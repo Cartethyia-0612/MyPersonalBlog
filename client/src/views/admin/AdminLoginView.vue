@@ -19,6 +19,7 @@ const code = ref('')
 const captchaToken = ref('')
 const captchaError = ref('')
 const captchaRef = ref<InstanceType<typeof CaptchaWidget> | null>(null)
+const rememberBrowser = ref(false)
 const step = ref<'credentials' | 'totp'>('credentials')
 const challengeToken = ref('')
 const localError = ref('')
@@ -54,7 +55,12 @@ async function submitCredentials(): Promise<void> {
   }
   submitting.value = true
   try {
-    const result = await authStore.login(username.value, password.value, captchaToken.value)
+    const result = await authStore.login(
+      username.value,
+      password.value,
+      captchaToken.value,
+      rememberBrowser.value,
+    )
     if (result.requiresTotp) {
       if (!result.challengeToken) {
         localError.value = '两步验证挑战创建失败，请重新登录'
@@ -243,6 +249,14 @@ useSeo(() => ({
           <p v-if="!captchaToken && !captchaError" class="hint">
             请先完成上方人机验证，完成后即可提交。
           </p>
+
+          <label class="login-remember">
+            <input v-model="rememberBrowser" type="checkbox" :disabled="submitting" />
+            <span>
+              <strong>记住该浏览器</strong>
+              <small>30 天内保持登录；不勾选时登录凭据仅保留 1 天。</small>
+            </span>
+          </label>
 
           <p v-if="localError" class="admin-error" role="alert">{{ localError }}</p>
 
@@ -550,6 +564,39 @@ useSeo(() => ({
 
 :root[data-theme='dark'] .captcha-field__error {
   color: #ff9a9a;
+}
+
+.login-remember {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  padding: 10px 0 2px;
+  color: var(--text-soft);
+  cursor: pointer;
+}
+
+.login-remember input {
+  width: 15px;
+  height: 15px;
+  flex: none;
+  margin: 3px 0 0;
+  accent-color: var(--brand-strong);
+}
+
+.login-remember span {
+  display: grid;
+  gap: 2px;
+}
+
+.login-remember strong {
+  font-size: 0.76rem;
+  font-weight: 650;
+}
+
+.login-remember small {
+  color: var(--muted);
+  font-size: 0.62rem;
+  line-height: 1.55;
 }
 
 .login-submit {

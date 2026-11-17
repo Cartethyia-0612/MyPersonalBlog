@@ -96,6 +96,7 @@ export interface AppConfig {
   uploadDir: string
   allowedOrigins: Set<string>
   sessionTtlDays: number
+  rememberSessionTtlDays: number
 }
 
 const dbPath = process.env.DB_PATH
@@ -121,5 +122,6 @@ export const config: AppConfig = {
   dbPath,
   uploadDir,
   allowedOrigins,
-  sessionTtlDays: 7,
+  sessionTtlDays: 1,
+  rememberSessionTtlDays: 30,
 }

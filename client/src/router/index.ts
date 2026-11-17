@@ -79,6 +79,12 @@ const router = createRouter({
           component: () => import('@/views/admin/AdminSecurityView.vue'),
           meta: { title: '登录与安全', adminTitle: '登录与安全' },
         },
+        {
+          path: 'security/devices',
+          name: 'admin-devices',
+          component: () => import('@/views/admin/AdminDevicesView.vue'),
+          meta: { title: '登录设备', adminTitle: '登录设备' },
+        },
       ],
     },
     {

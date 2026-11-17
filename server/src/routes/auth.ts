@@ -41,7 +41,12 @@ const loginSchema = z.object({
   username: z.string().trim().min(1).max(64),
   password: z.string().min(1).max(200),
   captchaToken: z.string().trim().max(4096).optional(),
+  rememberBrowser: z.boolean().optional(),
 })
+
+function sessionTtlDays(config: AppConfig, remember: boolean): number {
+  return remember ? config.rememberSessionTtlDays : config.sessionTtlDays
+}
 
 const totpLoginSchema = z.object({
   challengeToken: z.string().min(20).max(2000),
@@ -65,7 +70,8 @@ export function createAuthRouter(db: Db, config: AppConfig): Router {
   })
 
   router.post('/login', async (req, res) => {
-    const { username, password, captchaToken } = parseBody(loginSchema, req)
+    const { username, password, captchaToken, rememberBrowser } = parseBody(loginSchema, req)
+    const remember = rememberBrowser === true
     const ip = getClientIp(req)
     const accountKey = buildPasswordAttemptKey(ip, username)
     const ipKey = buildIpAttemptKey(ip)
@@ -110,7 +116,7 @@ export function createAuthRouter(db: Db, config: AppConfig): Router {
       if (!user.totp_secret_enc) {
         throw new AppError(500, 'TOTP_MISCONFIGURED', '两步验证配置异常，请联系站点管理员')
       }
-      const challengeToken = createLoginChallenge(user.id, config.appSecret)
+      const challengeToken = createLoginChallenge(user.id, config.appSecret, remember)
       return res.json({
         requiresTotp: true,
         challengeToken,
@@ -118,14 +124,15 @@ export function createAuthRouter(db: Db, config: AppConfig): Router {
       })
     }
 
+    const ttlDays = sessionTtlDays(config, remember)
     const session = createSession(
       db,
       user.id,
       { ip, userAgent: req.get('user-agent') ?? '' },
-      config.sessionTtlDays,
+      ttlDays,
     )
-    setSessionCookie(res, session.rawToken, config)
-    setCsrfCookie(res, session.csrfToken, config)
+    setSessionCookie(res, session.rawToken, config, ttlDays)
+    setCsrfCookie(res, session.csrfToken, config, ttlDays)
 
     return res.json({
       requiresTotp: false,
@@ -171,14 +178,16 @@ export function createAuthRouter(db: Db, config: AppConfig): Router {
     clearFailedAttempts(db, attemptKey)
     deleteExpiredSessions(db)
 
+    const remember = challenge.remember
+    const ttlDays = sessionTtlDays(config, remember)
     const session = createSession(
       db,
       user.id,
       { ip, userAgent: req.get('user-agent') ?? '' },
-      config.sessionTtlDays,
+      ttlDays,
     )
-    setSessionCookie(res, session.rawToken, config)
-    setCsrfCookie(res, session.csrfToken, config)
+    setSessionCookie(res, session.rawToken, config, ttlDays)
+    setCsrfCookie(res, session.csrfToken, config, ttlDays)
 
     return res.json({
       requiresTotp: false,

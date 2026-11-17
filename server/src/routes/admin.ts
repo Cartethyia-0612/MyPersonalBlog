@@ -3,11 +3,14 @@ import { z } from 'zod'
 
 import type { AppConfig } from '../config'
 import type { Db } from '../db'
+import { clearAuthCookies } from '../lib/cookies'
 import { decryptText, encryptText } from '../lib/crypto'
 import { AppError } from '../lib/errors'
 import { parseBody } from '../lib/http'
 import { requireAuth } from '../middleware/auth'
+import { requireSensitiveCaptcha } from '../middleware/captcha'
 import { getArticleStats } from '../services/articles'
+import { describeUserAgent, normalizeIp } from '../services/deviceInfo'
 import { getFriendStats } from '../services/friends'
 import { createAdminArticlesRouter } from './adminArticles'
 import { createAdminFriendsRouter } from './adminFriends'
@@ -43,6 +46,15 @@ const totpDisableSchema = z.object({
   code: z.string().trim().min(6).max(8),
 })
 
+interface DeviceSessionRow {
+  id: string
+  user_agent: string
+  ip: string
+  created_at: string
+  expires_at: string
+  last_seen_at: string
+}
+
 function getCurrentUserOrThrow(db: Db, userId: number | undefined) {
   if (!userId) throw new AppError(401, 'UNAUTHORIZED', '请先登录管理后台')
   const user = findUserById(db, userId)
@@ -65,6 +77,62 @@ export function createAdminRouter(db: Db, config: AppConfig): Router {
       totpEnabled: Boolean(user.totp_enabled),
       hasPendingTotpSecret: Boolean(user.totp_secret_enc) && !user.totp_enabled,
     })
+  })
+
+  router.get('/security/devices', (req, res) => {
+    const user = getCurrentUserOrThrow(db, req.currentUser?.id)
+    const rows = db
+      .prepare(
+        `SELECT id, user_agent, ip, created_at, expires_at, last_seen_at
+         FROM sessions
+         WHERE user_id = ? AND expires_at > ?
+         ORDER BY last_seen_at DESC, created_at DESC`,
+      )
+      .all(user.id, new Date().toISOString()) as DeviceSessionRow[]
+
+    const currentId = req.sessionContext?.id
+    res.json({
+      items: rows.map((row) => {
+        const description = describeUserAgent(row.user_agent)
+        return {
+          id: row.id,
+          current: row.id === currentId,
+          userAgent: row.user_agent,
+          ip: normalizeIp(row.ip),
+          ...description,
+          createdAt: row.created_at,
+          lastSeenAt: row.last_seen_at,
+          expiresAt: row.expires_at,
+        }
+      }),
+    })
+  })
+
+  router.delete('/security/devices', requireSensitiveCaptcha(db), (req, res) => {
+    const user = getCurrentUserOrThrow(db, req.currentUser?.id)
+    const result = db.prepare('DELETE FROM sessions WHERE user_id = ?').run(user.id)
+    clearAuthCookies(res, config)
+    res.json({ ok: true, count: result.changes })
+  })
+
+  router.delete('/security/devices/:id', requireSensitiveCaptcha(db), (req, res) => {
+    const user = getCurrentUserOrThrow(db, req.currentUser?.id)
+    const rawId = req.params.id
+    const id = Array.isArray(rawId) ? rawId[0] : rawId
+
+    if (!/^[a-f0-9]{64}$/.test(id)) {
+      throw new AppError(400, 'INVALID_DEVICE', '设备标识不合法')
+    }
+    if (id === req.sessionContext?.id) {
+      throw new AppError(400, 'CANNOT_REVOKE_CURRENT', '当前设备请使用退出登录')
+    }
+
+    const result = db.prepare('DELETE FROM sessions WHERE id = ? AND user_id = ?').run(id, user.id)
+    if (result.changes === 0) {
+      throw new AppError(404, 'DEVICE_NOT_FOUND', '该设备已下线或不存在')
+    }
+
+    res.json({ ok: true })
   })
 
   router.get('/overview', (req, res) => {
@@ -101,7 +169,7 @@ export function createAdminRouter(db: Db, config: AppConfig): Router {
   router.use(createAdminSettingsRouter(db))
   router.use('/uploads', createAdminUploadsRouter(config))
 
-  router.post('/security/password', async (req, res) => {
+  router.post('/security/password', requireSensitiveCaptcha(db), async (req, res) => {
     const { currentPassword, newPassword } = parseBody(changePasswordSchema, req)
     const user = getCurrentUserOrThrow(db, req.currentUser?.id)
 
@@ -147,7 +215,7 @@ export function createAdminRouter(db: Db, config: AppConfig): Router {
     })
   })
 
-  router.post('/security/totp/enable', (req, res) => {
+  router.post('/security/totp/enable', requireSensitiveCaptcha(db), (req, res) => {
     const { code } = parseBody(totpEnableSchema, req)
     const user = getCurrentUserOrThrow(db, req.currentUser?.id)
 
@@ -176,7 +244,7 @@ export function createAdminRouter(db: Db, config: AppConfig): Router {
     res.json({ ok: true, totpEnabled: true })
   })
 
-  router.post('/security/totp/disable', async (req, res) => {
+  router.post('/security/totp/disable', requireSensitiveCaptcha(db), async (req, res) => {
     const { password, code } = parseBody(totpDisableSchema, req)
     const user = getCurrentUserOrThrow(db, req.currentUser?.id)
 

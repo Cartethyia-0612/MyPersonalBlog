@@ -95,6 +95,20 @@ export interface SecurityInfo {
   hasPendingTotpSecret: boolean
 }
 
+export interface LoginDevice {
+  id: string
+  current: boolean
+  browser: string
+  os: string
+  deviceType: string
+  label: string
+  ip: string
+  userAgent: string
+  createdAt: string
+  lastSeenAt: string
+  expiresAt: string
+}
+
 export interface TotpSetupResponse {
   secret: string
   otpauthUrl: string
