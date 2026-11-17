@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 
-import { useThemeStore, type FontMode, type ThemeMode } from '@/stores/theme'
+import { BLUR_LEVELS, useThemeStore, type FontMode, type ThemeMode } from '@/stores/theme'
 
 const theme = useThemeStore()
 const route = useRoute()
@@ -27,6 +27,27 @@ const fontOptions: Array<{ mode: FontMode; label: string; description: string }>
     description: '跟随设备默认字体',
   },
 ]
+
+const blurLabel = computed(
+  () => BLUR_LEVELS.find((option) => option.level === theme.blurLevel)?.label ?? '标准',
+)
+
+function onBlurInput(event: Event): void {
+  const value = Number((event.target as HTMLInputElement).value)
+  theme.setBlurLevel(value)
+}
+
+function onBlurKeydown(event: KeyboardEvent): void {
+  const direction =
+    event.key === 'ArrowRight' || event.key === 'ArrowUp'
+      ? 1
+      : event.key === 'ArrowLeft' || event.key === 'ArrowDown'
+        ? -1
+        : 0
+  if (!direction) return
+  event.preventDefault()
+  theme.setBlurLevel(theme.blurLevel + direction)
+}
 
 function toggle(): void {
   open.value = !open.value
@@ -165,6 +186,31 @@ onBeforeUnmount(() => {
             网站字体为子集化文件，未覆盖的字符会自动回退到系统字体。
           </p>
         </div>
+
+        <div class="appearance-settings__group">
+          <div class="appearance-settings__row">
+            <p class="appearance-settings__label mono">BLUR / 模糊</p>
+            <span class="appearance-settings__value mono">{{ blurLabel }}</span>
+          </div>
+          <input
+            class="appearance-settings__range"
+            type="range"
+            min="0"
+            max="5"
+            step="1"
+            :value="theme.blurLevel"
+            :aria-valuetext="blurLabel"
+            aria-label="模糊强度"
+            @input="onBlurInput"
+            @keydown="onBlurKeydown"
+          />
+          <div class="appearance-settings__ticks mono" aria-hidden="true">
+            <span v-for="option in BLUR_LEVELS" :key="option.level">{{ option.level }}</span>
+          </div>
+          <p class="appearance-settings__hint">
+            0 为关闭，3 为默认。全站毛玻璃与光晕会平滑过渡，约 0.2 秒。
+          </p>
+        </div>
       </section>
     </Transition>
   </div>
@@ -190,7 +236,9 @@ onBeforeUnmount(() => {
   right: 0;
   z-index: 80;
   width: min(332px, calc(100vw - 28px));
+  max-height: calc(100vh - 110px);
   padding: 16px;
+  overflow-y: auto;
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   background: var(--surface-solid);
@@ -346,6 +394,81 @@ onBeforeUnmount(() => {
   color: var(--muted);
   font-size: 0.56rem;
   line-height: 1.6;
+}
+
+.appearance-settings__row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.appearance-settings__value {
+  color: var(--brand-deep);
+  font-size: 0.58rem;
+  letter-spacing: 0.04em;
+}
+
+:root[data-theme='dark'] .appearance-settings__value {
+  color: var(--brand);
+}
+
+.appearance-settings__range {
+  width: 100%;
+  height: 22px;
+  margin: 0;
+  padding: 0;
+  appearance: none;
+  background: transparent;
+  cursor: pointer;
+}
+
+.appearance-settings__range::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: var(--radius-pill);
+  background: linear-gradient(90deg, rgba(var(--brand-rgb), 0.55), var(--brand-strong));
+}
+
+.appearance-settings__range::-webkit-slider-thumb {
+  width: 16px;
+  height: 16px;
+  margin-top: -6px;
+  border: 2px solid var(--surface-solid);
+  border-radius: 50%;
+  appearance: none;
+  background: var(--brand-strong);
+  box-shadow: 0 2px 8px rgba(var(--brand-rgb), 0.45);
+}
+
+.appearance-settings__range::-moz-range-track {
+  height: 4px;
+  border-radius: var(--radius-pill);
+  background: linear-gradient(90deg, rgba(var(--brand-rgb), 0.55), var(--brand-strong));
+}
+
+.appearance-settings__range::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--surface-solid);
+  border-radius: 50%;
+  background: var(--brand-strong);
+  box-shadow: 0 2px 8px rgba(var(--brand-rgb), 0.45);
+}
+
+.appearance-settings__range:focus-visible {
+  outline: 2px solid var(--brand-strong);
+  outline-offset: 5px;
+  border-radius: var(--radius-pill);
+}
+
+.appearance-settings__ticks {
+  display: flex;
+  justify-content: space-between;
+  margin-top: -2px;
+  padding: 0 2px;
+  color: var(--muted);
+  font-size: 0.5rem;
+  opacity: 0.8;
 }
 
 .appearance-pop-enter-active,

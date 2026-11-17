@@ -1,5 +1,14 @@
+@property --blur-factor {
+  syntax: '<number>';
+  inherits: true;
+  initial-value: 1;
+}
+
 :root {
   color-scheme: light;
+
+  /* glass / glow blur strength, driven by the display settings slider */
+  --blur-factor: 1;
 
   /* Tianyi blue palette */
   --brand: #66ccff;
@@ -58,6 +67,8 @@
   --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
   --duration-fast: 160ms;
   --duration-base: 280ms;
+
+  transition: --blur-factor 200ms var(--ease-out);
 }
 
 :root[data-font='system'] {
@@ -89,4 +100,10 @@
   --shadow-md: 0 30px 80px -36px rgba(0, 0, 0, 0.85);
   --shadow-glow:
     0 0 0 1px rgba(var(--brand-rgb), 0.2), 0 28px 80px -30px rgba(var(--brand-rgb), 0.26);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    transition: none;
+  }
 }

@@ -175,7 +175,7 @@ watch(
   top: 0;
   z-index: 60;
   background: var(--header-bg);
-  backdrop-filter: blur(20px) saturate(1.25);
+  backdrop-filter: blur(calc(20px * var(--blur-factor))) saturate(1.25);
 }
 
 .site-header::after {

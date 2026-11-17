@@ -29,6 +29,8 @@ describe('theme store', () => {
     localStorage.clear()
     document.documentElement.dataset.theme = ''
     document.documentElement.dataset.font = ''
+    document.documentElement.dataset.blur = ''
+    document.documentElement.style.removeProperty('--blur-factor')
     listeners.length = 0
     setActivePinia(createPinia())
     mockMatchMedia(false)
@@ -73,6 +75,34 @@ describe('theme store', () => {
     setActivePinia(secondPinia)
     const restored = useThemeStore()
     expect(restored.fontMode).toBe('system')
+  })
+
+  it('defaults the blur to level 3 and applies the matching factor', () => {
+    const store = useThemeStore()
+    store.init()
+    expect(store.blurLevel).toBe(3)
+    expect(document.documentElement.dataset.blur).toBe('3')
+    expect(document.documentElement.style.getPropertyValue('--blur-factor')).toBe('1')
+
+    store.setBlurLevel(0)
+    expect(store.blurLevel).toBe(0)
+    expect(document.documentElement.style.getPropertyValue('--blur-factor')).toBe('0')
+    expect(localStorage.getItem('eshi-blur')).toBe('0')
+
+    store.setBlurLevel(5)
+    expect(document.documentElement.style.getPropertyValue('--blur-factor')).toBe('1.6')
+
+    store.setBlurLevel(9)
+    expect(store.blurLevel).toBe(5)
+  })
+
+  it('restores a stored blur level', () => {
+    localStorage.setItem('eshi-blur', '2')
+    const store = useThemeStore()
+    store.init()
+    expect(store.blurLevel).toBe(2)
+    expect(document.documentElement.dataset.blur).toBe('2')
+    expect(document.documentElement.style.getPropertyValue('--blur-factor')).toBe('0.55')
   })
 
   it('reacts to system changes only while in system mode', () => {

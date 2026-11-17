@@ -443,7 +443,7 @@ useSeo(() => ({
   text-overflow: ellipsis;
   white-space: nowrap;
   box-shadow: var(--shadow-sm);
-  backdrop-filter: blur(14px);
+  backdrop-filter: blur(calc(14px * var(--blur-factor)));
 }
 
 .floating-chip--one {

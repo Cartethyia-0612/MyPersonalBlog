@@ -67,8 +67,8 @@ onMounted(() => {
   width: 520px;
   height: 520px;
   border-radius: 50%;
-  filter: blur(90px);
-  opacity: 0.48;
+  filter: blur(calc(90px * var(--blur-factor)));
+  opacity: calc(0.48 * var(--blur-factor));
 }
 
 .public-layout__glow--one {

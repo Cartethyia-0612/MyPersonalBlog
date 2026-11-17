@@ -554,7 +554,7 @@ onBeforeUnmount(() => {
   border-top: 1px solid var(--border);
   background: var(--header-bg);
   box-shadow: 0 -18px 50px -32px rgba(3, 25, 42, 0.6);
-  backdrop-filter: blur(22px) saturate(1.25);
+  backdrop-filter: blur(calc(22px * var(--blur-factor))) saturate(1.25);
 }
 
 .music-bar__inner {
@@ -919,7 +919,7 @@ input[type='range']::-moz-range-thumb {
   background: var(--header-bg);
   color: var(--text);
   box-shadow: var(--shadow-sm);
-  backdrop-filter: blur(20px) saturate(1.2);
+  backdrop-filter: blur(calc(20px * var(--blur-factor))) saturate(1.2);
   transition:
     border-color var(--duration-fast) ease,
     transform var(--duration-fast) var(--ease-out);
@@ -1117,7 +1117,7 @@ input[type='range']::-moz-range-thumb {
   border-radius: var(--radius-md) var(--radius-md) 0 0;
   background: var(--surface-solid);
   box-shadow: var(--shadow-md);
-  backdrop-filter: blur(24px);
+  backdrop-filter: blur(calc(24px * var(--blur-factor)));
 }
 
 .music-panel__inner {

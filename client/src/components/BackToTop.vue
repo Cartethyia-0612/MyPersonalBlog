@@ -128,7 +128,7 @@ onBeforeUnmount(() => {
   background: var(--surface);
   color: var(--text);
   box-shadow: var(--shadow-sm);
-  backdrop-filter: blur(18px) saturate(1.2);
+  backdrop-filter: blur(calc(18px * var(--blur-factor))) saturate(1.2);
   transition:
     border-color var(--duration-fast) ease,
     transform var(--duration-base) var(--ease-out),
