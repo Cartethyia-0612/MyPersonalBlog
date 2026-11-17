@@ -13,10 +13,13 @@
 - 首页、文章归档、文章详情、友链、关于页，顶部标签切换
 - `#66CCFF` 天依蓝 + 深空网格 + 六边形 / 声波 / 终端等原创极客视觉
 - 浅色 / 深色 / 跟随系统三模式，首屏前置应用并本地记忆；顶部设置按钮统一切换主题
+- 全站毛玻璃与光晕模糊 0–5 档可调，显示设置内滑杆切换，0.2 秒平滑过渡，0 档关闭
 - 网站默认字体：霞鹜文楷 GB + Maple Mono；可在同一设置面板切换为系统字体
-- 首次进入加载界面会等待首屏路由、字体与 eager 资源加载完成后再淡出（15 秒网络异常兜底）；路由顶部进度条、页面过渡；尊重 `prefers-reduced-motion`
+- 首次进入加载界面会等待首屏路由、字体与 eager 资源加载完成后再淡出（15 秒网络异常兜底）；打字机特效只播放一次；路由顶部进度条、页面过渡；尊重 `prefers-reduced-motion`
 - 阅读进度圆环「返回顶部」按钮：页面位于顶部时自动隐藏，滚离顶部后显示滚动百分比；桌面端悬停 / 键盘聚焦时切换为向上箭头，触摸设备常显箭头
 - 文章 Markdown 渲染、代码高亮、标签筛选、分页、阅读时长
+- 每个 Markdown 代码块右上角悬浮复制按钮，悬停 / 聚焦完全显示，复制成功显示 `✔`，1 秒后恢复；按钮独立于横向滚动容器，长代码行滚动时不会被裁切或带走
+- 外部链接出站安全提醒：显示目标域名与完整 URL，支持「记住我的选择」；站内跳转、`beian.miit.gov.cn` 与 `beian.mps.gov.cn` 自动豁免
 - 响应式布局与可访问性细节
 - 页脚预留 ICP 备案、公安备案、虚拟备案地址列表（可增删，自定义显示文本与链接）、自定义文本与版权文案；BUILD_INFO 显示版本号与构建时间
 - RSS 2.0 订阅源：`/rss.xml`，自动包含已发布文章，支持浏览器/阅读器订阅发现
@@ -26,7 +29,7 @@
 
 ### 后台（`/admin`）
 
-- 密码登录 + 可选 TOTP 两步验证
+- 密码登录 + Cap 人机验证 + 可选 TOTP 两步验证
 - 仪表盘、文章管理 / Markdown 编辑器 / 草稿与发布
 - 关于页编辑、友链管理、站点 Icon 上传
 - 全局设置：站点身份、站点 URL、站点 Icon、作者、页脚备案
@@ -39,6 +42,7 @@
 ### 安全与合规
 
 - 后台密码 bcrypt 哈希存储（cost 12）
+- 登录接入 Cap（`capjs-core` + `cap-widget`）HashWX 人机验证；`used_tokens` 表记录 challenge nonce 与登录 token，二者均单次消费，重放请求直接拒绝
 - 双提交 CSRF Token + Origin / Fetch Metadata 校验，覆盖登录及全部写接口（登录前使用匿名双提交 token）
 - 基于 SQLite 的登录失败限流与 TOTP 失败限流
 - 会话令牌仅以 SHA-256 哈希入库，HttpOnly + SameSite=Strict + 生产 Secure
@@ -50,16 +54,16 @@
 
 ## 技术栈
 
-| 层     | 选型                                             |
-| ------ | ------------------------------------------------ |
-| 前端   | Vue 3、TypeScript、Vite、Vue Router、Pinia       |
-| 后端   | Node.js、Express 5、TypeScript                   |
-| 数据库 | SQLite（better-sqlite3）+ 版本化迁移             |
-| 认证   | bcryptjs、SQLite Session、CSRF、TOTP、登录限流   |
-| 内容   | Markdown-it + highlight.js + DOMPurify           |
-| 字体   | 霞鹜文楷 GB / Maple Mono（自托管 WOFF2 子集）    |
-| 测试   | Vitest、Supertest、Vue Test Utils                |
-| 部署   | 单实例 Node + systemd / Nginx，或 Docker Compose |
+| 层     | 选型                                                         |
+| ------ | ------------------------------------------------------------ |
+| 前端   | Vue 3、TypeScript、Vite、Vue Router、Pinia                   |
+| 后端   | Node.js、Express 5、TypeScript                               |
+| 数据库 | SQLite（better-sqlite3）+ 版本化迁移                         |
+| 认证   | bcryptjs、SQLite Session、CSRF、Cap 人机验证、TOTP、登录限流 |
+| 内容   | Markdown-it + highlight.js + DOMPurify                       |
+| 字体   | 霞鹜文楷 GB / Maple Mono（自托管 WOFF2 子集）                |
+| 测试   | Vitest、Supertest、Vue Test Utils                            |
+| 部署   | 单实例 Node + systemd / Nginx，或 Docker Compose             |
 
 ## 快速开始
 
@@ -163,6 +167,7 @@ HOST=127.0.0.1
 | 变量                                | 必填     | 说明                                                                                         |
 | ----------------------------------- | -------- | -------------------------------------------------------------------------------------------- |
 | `APP_SECRET`                        | 是       | ≥32 字符，用于会话挑战签名与 TOTP 密钥加密；部署后不要更换，否则 TOTP 无法解密               |
+| `CAP_SECRET`                        | 否       | Cap 人机验证签发密钥，≥16 字符；留空时从 `APP_SECRET` 做域分离派生，设置后可独立轮换         |
 | `SITE_URL`                          | 生产必填 | 站点公开地址，无末尾斜杠；SEO、canonical、CSRF Origin 使用；开发默认 `http://localhost:5173` |
 | `HOST`                              | 否       | 监听地址，默认 `127.0.0.1`；本地/VPS 反向代理模式保持默认，容器/PaaS 设为 `0.0.0.0`          |
 | `PORT`                              | 否       | Node 端口，默认 3000；Vite 开发代理会读取同一值                                              |
@@ -208,7 +213,7 @@ server/                  Express API
   src/
     db/                  SQLite 连接 + 迁移
     middleware/          session、CSRF、auth
-    services/            内容、设置、TOTP、Meting、SEO、上传
+    services/            内容、设置、Cap 人机验证、TOTP、Meting、SEO、上传
     routes/              public / auth / admin / seo
   scripts/               setup、seed-demo、backup
   tests/                 Supertest + Vitest
@@ -231,11 +236,12 @@ docker-compose.yml       Docker Compose 单实例部署
 认证与后台接口：
 
 - `GET /api/auth/session`、`POST /api/auth/login`、`POST /api/auth/login/totp`、`POST /api/auth/logout`
+- `POST /api/auth/captcha/challenge`、`POST /api/auth/captcha/redeem`（登录页 Cap 组件使用）
 - `/api/admin/articles`、`/api/admin/friends`、`/api/admin/about`、`/api/admin/settings`
 - `/api/admin/music/playlists`、`/api/admin/seo`、`/api/admin/security`
 - `/api/admin/uploads`
 
-登录后的写接口要求会话绑定的 CSRF Token；登录接口使用匿名双提交 token，调用前需先 `GET /api/auth/session` 获取。后台接口要求有效登录会话。
+登录后的写接口要求会话绑定的 CSRF Token；登录接口使用匿名双提交 token，并必须携带 `POST /api/auth/captcha/redeem` 返回的 `captchaToken`。后台接口要求有效登录会话。
 
 ## 部署
 

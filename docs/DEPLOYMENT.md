@@ -8,6 +8,7 @@
 
 - [ ] Node.js ≥ 22.12（推荐 24 LTS），pnpm ≥ 11
 - [ ] `APP_SECRET` ≥ 32 字符且长期保持不变；已与备份分开安全保存
+- [ ] `CAP_SECRET` 可选：未设置时由 `APP_SECRET` 派生；如单独设置，≥16 字符并单独备份
 - [ ] `SITE_URL` 是真实公网 HTTPS 地址（SEO 推送必需）
 - [ ] `HOST=127.0.0.1`，Node 端口只监听本机
 - [ ] `COOKIE_SECURE=true`、`TRUST_PROXY=1`
@@ -64,6 +65,8 @@ PORT=3000
 HOST=127.0.0.1
 SITE_URL=http://localhost:5173
 APP_SECRET=生成的随机串
+# 可选：Cap 人机验证独立密钥；留空则从 APP_SECRET 派生
+CAP_SECRET=
 COOKIE_SECURE=false
 TRUST_PROXY=0
 ```
@@ -506,6 +509,8 @@ SEO 首屏元信息由 Node 在返回 `index.html` 时注入，客户端路由�
 
 - [ ] 使用 HTTPS，`COOKIE_SECURE=true`
 - [ ] `APP_SECRET` 随机、≥32 字符、权限 600、不更换，并已独立安全备份
+- [ ] 登录页 Cap 人机验证可正常完成；CSP 允许 `'wasm-unsafe-eval'` 与 `worker-src blob:`
+- [ ] 已确认 `used_tokens` 表存在，且登录 token 只能成功消费一次
 - [ ] 确认未使用任何示例或可猜测的管理员密码；项目不提供默认账号
 - [ ] 开启 TOTP，并妥善保存验证器 / 恢复方式
 - [ ] 不在公网暴露 SQLite 端口（本应用无数据库端口，仅文件）
@@ -516,27 +521,39 @@ SEO 首屏元信息由 Node 在返回 `index.html` 时注入，客户端路由�
 - [ ] 不在仓库写入真实备案号之外的敏感信息
 - [ ] 本项目无评论系统；不要通过第三方脚本重新引入评论嵌入
 
+### Cap 人机验证
+
+登录页使用 `capjs-core` 生成/校验 HashWX challenge，并由 `cap-widget` 在浏览器完成计算。两个 WASM 文件随前端构建产物一起发布，不依赖 jsDelivr，因此国内网络也能正常加载。
+
+- `POST /api/auth/captcha/challenge` 签发 challenge；`POST /api/auth/captcha/redeem` 校验并返回一次性的 `captchaToken`。
+- `used_tokens` 表保存 challenge nonce 与登录 token 的哈希：nonce 在 redeem 时立即消费，登录 token 在 `/api/auth/login` 时原子消费；同一 token 第二次使用会返回 `403 CAPTCHA_INVALID`。
+- 密码错误也会消费 token，这是有意的：失败后必须重新完成人机验证。
+- 登录 token 默认 20 分钟有效；等待过久后刷新登录页即可。
+- 如需独立轮换，配置 `CAP_SECRET`（≥16 字符）；未配置时从 `APP_SECRET` 做域分离派生，升级无需新增必填变量。
+
 ---
 
 ## 8. 故障排查
 
-| 现象                                          | 排查方向                                                                                                                                                     |
-| --------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| 登录/保存返回 403 CSRF                        | 检查 `SITE_URL` / `ALLOWED_ORIGINS` 是否包含浏览器实际 Origin；确认请求带 `X-CSRF-Token`。`TRUST_PROXY` 只影响客户端 IP 与限流，不决定 CSRF Origin 校验      |
-| 登录后仍然未登录                              | HTTPS 下 `COOKIE_SECURE=true`；检查浏览器是否阻止第三方/安全 Cookie；确认没有多个域名混用                                                                    |
-| 登录 429                                      | 登录失败限流生效：密码窗口 15 分钟，TOTP 窗口 10 分钟；等待窗口结束或检查数据库 `login_attempts`                                                             |
-| TOTP 永远验证失败                             | 服务器和手机时间需同步；检查 `APP_SECRET` 是否被更换                                                                                                         |
-| 数据库 `SQLITE_BUSY`                          | 确认只有一个实例在写；不要在容器副本间共享 DB；检查磁盘权限                                                                                                  |
-| 上传失败                                      | 检查 `UPLOAD_DIR` 写权限、反向代理 `client_max_body_size`、图片是否 ≤2MB 且为支持的格式（不允许 SVG）                                                        |
-| 播放器封面/音频被 CSP 拦截                    | 当前 CSP 允许 `https:` 图片与媒体；HTTP 音频在 HTTPS 页面会被浏览器拦截；可配置自建 Meting API 使用 HTTPS                                                    |
-| 播放列表失败                                  | 后台检查 Meting API 地址、歌单是否公开、网络连通性；后台「预览」可先验证                                                                                     |
-| sitemap 含 localhost                          | 在 `.env` 与后台站点设置中改为真实域名，重启/刷新                                                                                                            |
-| 推送按钮禁用                                  | 域名不是公网地址或未配置 Key/Token                                                                                                                           |
-| IndexNow Key 文件 404                         | 确认 Key 已保存且访问地址是 `SITE_URL/<key>.txt`；反向代理不能拦截 `.txt`                                                                                    |
-| 页面加载后没有内容                            | 查看 `/api/health`、Nginx 日志、浏览器控制台；检查前端构建产物是否存在                                                                                       |
-| 静态资源 404                                  | 重新执行 `pnpm build`；确认 `client/dist` 存在且 Node 有读取权限                                                                                             |
-| 修改样式后前台未更新                          | 重新构建并部署；浏览器强刷；检查 Nginx/缓存策略                                                                                                              |
-| `pnpm setup` 报 `Unknown option: 'recursive'` | 旧版根脚本把 pnpm 内置 `setup` 命令当作项目脚本解析。更新到 v1.1.8+，或临时执行 `pnpm --filter @eshi/server run setup`（也可 `cd server && pnpm run setup`） |
+| 现象                                          | 排查方向                                                                                                                                                            |
+| --------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 登录/保存返回 403 CSRF                        | 检查 `SITE_URL` / `ALLOWED_ORIGINS` 是否包含浏览器实际 Origin；确认请求带 `X-CSRF-Token`。`TRUST_PROXY` 只影响客户端 IP 与限流，不决定 CSRF Origin 校验             |
+| 登录页人机验证一直加载失败                    | 检查浏览器能否加载 `/assets/*.wasm`；确认反向代理未改写 CSP；CSP 需包含 `script-src 'self' 'wasm-unsafe-eval'`、`worker-src 'self' blob:`；浏览器需支持 WebAssembly |
+| 登录提示「人机验证已失效」                    | token 已消费或超过 20 分钟；刷新登录页重新完成验证。一次密码登录（无论成功或密码错误）都会消费 token                                                                |
+| 登录后仍然未登录                              | HTTPS 下 `COOKIE_SECURE=true`；检查浏览器是否阻止第三方/安全 Cookie；确认没有多个域名混用                                                                           |
+| 登录 429                                      | 登录失败限流生效：密码窗口 15 分钟，TOTP 窗口 10 分钟；等待窗口结束或检查数据库 `login_attempts`                                                                    |
+| TOTP 永远验证失败                             | 服务器和手机时间需同步；检查 `APP_SECRET` 是否被更换                                                                                                                |
+| 数据库 `SQLITE_BUSY`                          | 确认只有一个实例在写；不要在容器副本间共享 DB；检查磁盘权限                                                                                                         |
+| 上传失败                                      | 检查 `UPLOAD_DIR` 写权限、反向代理 `client_max_body_size`、图片是否 ≤2MB 且为支持的格式（不允许 SVG）                                                               |
+| 播放器封面/音频被 CSP 拦截                    | 当前 CSP 允许 `https:` 图片与媒体；HTTP 音频在 HTTPS 页面会被浏览器拦截；可配置自建 Meting API 使用 HTTPS                                                           |
+| 播放列表失败                                  | 后台检查 Meting API 地址、歌单是否公开、网络连通性；后台「预览」可先验证                                                                                            |
+| sitemap 含 localhost                          | 在 `.env` 与后台站点设置中改为真实域名，重启/刷新                                                                                                                   |
+| 推送按钮禁用                                  | 域名不是公网地址或未配置 Key/Token                                                                                                                                  |
+| IndexNow Key 文件 404                         | 确认 Key 已保存且访问地址是 `SITE_URL/<key>.txt`；反向代理不能拦截 `.txt`                                                                                           |
+| 页面加载后没有内容                            | 查看 `/api/health`、Nginx 日志、浏览器控制台；检查前端构建产物是否存在                                                                                              |
+| 静态资源 404                                  | 重新执行 `pnpm build`；确认 `client/dist` 存在且 Node 有读取权限                                                                                                    |
+| 修改样式后前台未更新                          | 重新构建并部署；浏览器强刷；检查 Nginx/缓存策略                                                                                                                     |
+| `pnpm setup` 报 `Unknown option: 'recursive'` | 旧版根脚本把 pnpm 内置 `setup` 命令当作项目脚本解析。更新到 v1.1.8+，或临时执行 `pnpm --filter @eshi/server run setup`（也可 `cd server && pnpm run setup`）        |
 
 ## 9. 最终验收命令
 
