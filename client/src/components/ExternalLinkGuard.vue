@@ -29,21 +29,22 @@ function onDocumentClick(event: MouseEvent): void {
   const isMiddleClick = event.type === 'auxclick' && event.button === 1
   if (!isPrimaryClick && !isMiddleClick) return
   if (event.defaultPrevented) return
-  if (hasExternalLinkConsent()) return
 
   const anchor = findAnchor(event)
-  if (!anchor) return
+  if (!anchor || anchor.dataset.externalGuardBypass === 'true') return
 
   const target = resolveExternalLink(anchor)
   if (!target) return
 
   event.preventDefault()
-  lastFocused = document.activeElement instanceof HTMLElement ? document.activeElement : null
-  pending.value = {
-    ...target,
-    openInNewTab:
-      target.openInNewTab || isMiddleClick || event.metaKey || event.ctrlKey || event.shiftKey,
+
+  if (hasExternalLinkConsent()) {
+    openInNewTab(target.url)
+    return
   }
+
+  lastFocused = document.activeElement instanceof HTMLElement ? document.activeElement : null
+  pending.value = target
   remember.value = false
 }
 
@@ -84,19 +85,27 @@ function cancel(): void {
   close()
 }
 
+function openInNewTab(url: string): void {
+  const link = document.createElement('a')
+  link.href = url
+  link.target = '_blank'
+  link.rel = 'noopener noreferrer'
+  link.dataset.externalGuardBypass = 'true'
+  link.style.display = 'none'
+  document.body.appendChild(link)
+  link.click()
+  link.remove()
+}
+
 function confirm(): void {
   const target = pending.value
   if (!target) return
 
   if (remember.value) rememberExternalLinkConsent()
   pending.value = null
-
-  if (target.openInNewTab) {
-    const opened = window.open(target.url, '_blank', 'noopener,noreferrer')
-    if (!opened) window.location.assign(target.url)
-    return
-  }
-  window.location.assign(target.url)
+  // External links always leave through a new tab. The current page must stay
+  // put so the guard is still armed for the next click.
+  openInNewTab(target.url)
 }
 
 watch(pending, (value) => {

@@ -1,6 +1,10 @@
 const RESET_DELAY_MS = 1000
 const resetTimers = new WeakMap<HTMLButtonElement, number>()
 
+const COPY_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"></rect><path d="M5 15V6a2 2 0 0 1 2-2h9"></path></svg>`
+const CHECK_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12 4 4L19 6"></path></svg>`
+const FAIL_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"></path></svg>`
+
 /**
  * Wrap every rendered code block in a positioning container and add a copy
  * button outside the horizontal scroll area. The wrapper is what keeps the
@@ -19,7 +23,7 @@ export function decorateCodeBlocks(root: HTMLElement): void {
     button.type = 'button'
     button.className = 'code-copy'
     button.dataset.codeCopy = 'true'
-    button.textContent = '复制'
+    button.innerHTML = COPY_ICON
     button.title = '复制代码'
     button.setAttribute('aria-label', '复制代码')
     wrapper.appendChild(button)
@@ -77,13 +81,13 @@ function markButton(button: HTMLButtonElement, copied: boolean): void {
   if (existing !== undefined) window.clearTimeout(existing)
 
   button.dataset.state = copied ? 'copied' : 'failed'
-  button.textContent = copied ? '✔' : '✕'
+  button.innerHTML = copied ? CHECK_ICON : FAIL_ICON
   button.title = copied ? '已复制' : '复制失败'
   button.setAttribute('aria-label', copied ? '代码已复制' : '复制失败')
 
   const timer = window.setTimeout(() => {
     delete button.dataset.state
-    button.textContent = '复制'
+    button.innerHTML = COPY_ICON
     button.title = '复制代码'
     button.setAttribute('aria-label', '复制代码')
     resetTimers.delete(button)

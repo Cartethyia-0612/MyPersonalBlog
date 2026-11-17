@@ -1,5 +1,35 @@
 <script setup lang="ts">
+import { onBeforeUnmount, onMounted, ref } from 'vue'
+
 import BrandMark from '@/components/BrandMark.vue'
+
+const MESSAGE = 'loading fonts, assets & inspiration...'
+const typed = ref('')
+const done = ref(false)
+let timer: number | undefined
+
+onMounted(() => {
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    typed.value = MESSAGE
+    done.value = true
+    return
+  }
+
+  let index = 0
+  timer = window.setInterval(() => {
+    index += 1
+    typed.value = MESSAGE.slice(0, index)
+    if (index >= MESSAGE.length) {
+      done.value = true
+      window.clearInterval(timer)
+      timer = undefined
+    }
+  }, 32)
+})
+
+onBeforeUnmount(() => {
+  if (timer !== undefined) window.clearInterval(timer)
+})
 </script>
 
 <template>
@@ -11,7 +41,10 @@ import BrandMark from '@/components/BrandMark.vue'
       <h1 class="loading-screen__name">饿师傅的技术札记</h1>
       <div class="loading-screen__line">
         <span class="loading-screen__prompt mono">&gt;</span>
-        <span class="loading-screen__typing mono">loading fonts, assets &amp; inspiration...</span>
+        <span class="loading-screen__typing mono" :class="{ 'is-done': done }" aria-hidden="true">{{
+          typed
+        }}</span>
+        <span class="sr-only">正在加载字体、资源与灵感…</span>
       </div>
       <div class="loading-screen__track" aria-hidden="true">
         <div class="loading-screen__fill" />
@@ -88,9 +121,12 @@ import BrandMark from '@/components/BrandMark.vue'
   overflow: hidden;
   border-right: 1px solid var(--brand-strong);
   white-space: nowrap;
-  animation:
-    typing 1.35s steps(42, end) 1 forwards,
-    caret 600ms step-end 2;
+  animation: caret 600ms step-end infinite;
+}
+
+.loading-screen__typing.is-done {
+  border-right-color: transparent;
+  animation: none;
 }
 
 .loading-screen__track {
@@ -117,22 +153,9 @@ import BrandMark from '@/components/BrandMark.vue'
   color: var(--muted);
 }
 
-@keyframes typing {
-  0% {
-    width: 0;
-  }
-  100% {
-    width: 100%;
-  }
-}
-
 @keyframes caret {
-  0%,
-  100% {
-    border-color: transparent;
-  }
   50% {
-    border-color: var(--brand-strong);
+    border-color: transparent;
   }
 }
 

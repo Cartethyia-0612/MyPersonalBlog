@@ -42,17 +42,21 @@ describe('code block copy', () => {
     decorateCodeBlocks(root)
     const button = root.querySelector<HTMLButtonElement>('.code-copy')
     if (!button) throw new Error('copy button missing')
+    expect(button.querySelector('svg')).not.toBeNull()
+    expect(button.textContent).toBe('')
 
     const event = new MouseEvent('click', { bubbles: true, cancelable: true })
     button.dispatchEvent(event)
     await handleCodeCopyClick(event, root)
 
     expect(navigator.clipboard.writeText).toHaveBeenCalledWith('const answer = 42')
-    expect(button.textContent).toBe('✔')
+    expect(button.querySelector('svg')).not.toBeNull()
+    expect(button.getAttribute('aria-label')).toBe('代码已复制')
     expect(button.dataset.state).toBe('copied')
 
     vi.advanceTimersByTime(1000)
-    expect(button.textContent).toBe('复制')
+    expect(button.querySelector('svg')).not.toBeNull()
+    expect(button.getAttribute('aria-label')).toBe('复制代码')
     expect(button.dataset.state).toBeUndefined()
   })
 

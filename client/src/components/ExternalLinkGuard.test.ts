@@ -51,8 +51,14 @@ describe('ExternalLinkGuard', () => {
   })
 
   it('remembers the choice after confirming and allows the next link', async () => {
-    const open = vi.spyOn(window, 'open').mockReturnValue({} as Window)
-    clickLink('https://example.com/read', '_blank')
+    let opened: { href: string; target: string; rel: string } | null = null
+    vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function (
+      this: HTMLAnchorElement,
+    ) {
+      opened = { href: this.href, target: this.target, rel: this.rel }
+    })
+
+    expect(clickLink('https://example.com/read', '_blank')).toBe(true)
     await nextTick()
 
     const checkbox = document.querySelector<HTMLInputElement>(
@@ -65,13 +71,57 @@ describe('ExternalLinkGuard', () => {
     confirmButton?.click()
 
     expect(localStorage.getItem('eshi-external-link-consent')).toBe('allow')
-    expect(open).toHaveBeenCalledWith('https://example.com/read', '_blank', 'noopener,noreferrer')
+    expect(opened).toEqual({
+      href: 'https://example.com/read',
+      target: '_blank',
+      rel: 'noopener noreferrer',
+    })
     await nextTick()
     expect(document.querySelector('.external-guard__panel')).toBeNull()
 
-    expect(clickLink('https://example.org/other')).toBe(false)
+    expect(clickLink('https://example.org/other')).toBe(true)
     await nextTick()
     expect(document.querySelector('.external-guard__panel')).toBeNull()
+    expect(opened).toEqual({
+      href: 'https://example.org/other',
+      target: '_blank',
+      rel: 'noopener noreferrer',
+    })
+  })
+
+  it('intercepts the same link again after the user cancels', async () => {
+    expect(clickLink('https://example.com/read')).toBe(true)
+    await nextTick()
+
+    const cancel = Array.from(document.querySelectorAll<HTMLButtonElement>('button')).find(
+      (button) => button.textContent?.includes('留在本站'),
+    )
+    cancel?.click()
+    await nextTick()
+    expect(document.querySelector('.external-guard__panel')).toBeNull()
+
+    expect(clickLink('https://example.com/read')).toBe(true)
+    await nextTick()
+    expect(document.querySelector('.external-guard__panel')).not.toBeNull()
+  })
+
+  it('opens links without target="_blank" in a new tab too', async () => {
+    let opened: { href: string; target: string } | null = null
+    vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function (
+      this: HTMLAnchorElement,
+    ) {
+      opened = { href: this.href, target: this.target }
+    })
+
+    clickLink('https://example.org/plain')
+    await nextTick()
+    const confirmButton = Array.from(document.querySelectorAll<HTMLButtonElement>('button')).find(
+      (button) => button.textContent?.includes('继续访问'),
+    )
+    confirmButton?.click()
+    await nextTick()
+
+    expect(opened).toEqual({ href: 'https://example.org/plain', target: '_blank' })
   })
 
   it('does not prompt for internal or exempt links', async () => {

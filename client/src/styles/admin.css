@@ -325,8 +325,9 @@
   --cap-font: var(--font-sans);
   --cap-spinner-color: var(--brand-strong);
   --cap-spinner-background-color: var(--border);
-  --cap-widget-height: 32px;
-  --cap-widget-padding: 12px;
+  --cap-widget-height: 41px;
+  --cap-widget-width: 100%;
+  --cap-widget-padding: 4px 12px;
 }
 
 .admin-check {

@@ -136,19 +136,16 @@
   right: 9px;
   z-index: 2;
   display: inline-flex;
-  min-width: 54px;
+  width: 30px;
+  min-width: 30px;
   height: 28px;
   align-items: center;
   justify-content: center;
-  padding: 0 10px;
+  padding: 0;
   border: 1px solid rgba(215, 237, 248, 0.24);
   border-radius: 7px;
   background: rgba(3, 15, 25, 0.88);
   color: #d7edf8;
-  font-family: var(--font-mono);
-  font-size: 0.62rem;
-  line-height: 1;
-  letter-spacing: 0.04em;
   opacity: 0.38;
   transform: translateY(-1px);
   transition:
@@ -157,6 +154,12 @@
     border-color 160ms ease,
     color 160ms ease;
   backdrop-filter: blur(calc(8px * var(--blur-factor)));
+}
+
+.markdown-body .code-copy svg {
+  width: 14px;
+  height: 14px;
+  pointer-events: none;
 }
 
 .markdown-body .code-block:hover .code-copy,
@@ -261,9 +264,8 @@
   .markdown-body .code-copy {
     right: 7px;
     top: 7px;
-    min-width: 48px;
+    width: 28px;
+    min-width: 28px;
     height: 26px;
-    padding: 0 8px;
-    font-size: 0.58rem;
   }
 }

@@ -1,7 +1,6 @@
 export interface ExternalLinkTarget {
   url: string
   host: string
-  openInNewTab: boolean
 }
 
 const EXEMPT_HOSTS = ['beian.miit.gov.cn', 'beian.mps.gov.cn']
@@ -36,7 +35,6 @@ export function resolveExternalLink(anchor: HTMLAnchorElement): ExternalLinkTarg
   return {
     url: url.href,
     host: url.host,
-    openInNewTab: anchor.target.toLowerCase() === '_blank',
   }
 }
 

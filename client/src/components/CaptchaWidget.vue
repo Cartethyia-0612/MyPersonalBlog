@@ -86,12 +86,16 @@ defineExpose({ reset })
 
 .captcha-widget__mount {
   display: flex;
-  min-height: 42px;
+  min-height: 46px;
   align-items: center;
 }
 
 .captcha-widget__mount :deep(cap-widget) {
+  display: block;
+  width: 100%;
   max-width: 100%;
+  --cap-widget-width: 100%;
+  --cap-widget-height: 41px;
 }
 
 .captcha-widget__status {

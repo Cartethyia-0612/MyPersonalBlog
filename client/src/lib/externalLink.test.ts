@@ -46,7 +46,6 @@ describe('external link guard', () => {
     expect(target).toEqual({
       url: 'https://example.com/path?q=1',
       host: 'example.com',
-      openInNewTab: true,
     })
   })
 
