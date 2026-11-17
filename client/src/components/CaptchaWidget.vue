@@ -94,8 +94,19 @@ defineExpose({ reset })
   display: block;
   width: 100%;
   max-width: 100%;
-  --cap-widget-width: 100%;
+  --cap-background: var(--surface-alt);
+  --cap-border-color: var(--border-strong);
+  --cap-border-radius: 12px;
+  --cap-color: var(--text);
+  --cap-checkbox-background: var(--surface-solid);
+  --cap-checkbox-border: 1px solid var(--border-strong);
+  --cap-checkbox-border-radius: 5px;
+  --cap-font: var(--font-sans);
+  --cap-spinner-color: var(--brand-strong);
+  --cap-spinner-background-color: var(--border);
   --cap-widget-height: 41px;
+  --cap-widget-width: 100%;
+  --cap-widget-padding: 4px 12px;
 }
 
 .captcha-widget__status {
