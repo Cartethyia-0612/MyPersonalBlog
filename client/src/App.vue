@@ -2,11 +2,12 @@
 import { nextTick, onMounted, ref } from 'vue'
 import { RouterView, useRouter } from 'vue-router'
 
+import ExternalLinkGuard from '@/components/ExternalLinkGuard.vue'
 import LoadingScreen from '@/components/LoadingScreen.vue'
 import TopProgress from '@/components/TopProgress.vue'
 import { waitForBootResources } from '@/lib/boot'
 
-const MIN_BOOT_MS = 1100
+const MIN_BOOT_MS = 1500
 const router = useRouter()
 const showBootScreen = ref(false)
 
@@ -49,6 +50,7 @@ onMounted(() => {
     <LoadingScreen v-if="showBootScreen" />
   </Transition>
   <RouterView />
+  <ExternalLinkGuard />
 </template>
 
 <style scoped>
