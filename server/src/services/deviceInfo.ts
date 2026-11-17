@@ -22,6 +22,9 @@ function detectBrowser(ua: string): string {
   match = /FxiOS\/([\d.]+)/.exec(ua)
   if (match) return `Firefox ${majorVersion(match[1])}`.trim()
 
+  match = /HuaweiBrowser\/([\d.]+)/.exec(ua)
+  if (match) return `Huawei Browser ${majorVersion(match[1])}`.trim()
+
   match = /CriOS\/([\d.]+)/.exec(ua)
   if (match) return `Chrome ${majorVersion(match[1])}`.trim()
 
@@ -44,6 +47,10 @@ function detectOs(ua: string): string {
   if (/Windows NT 6\.1/.test(ua)) return 'Windows 7'
   if (/Windows/.test(ua)) return 'Windows'
 
+  const harmony = /(?:OpenHarmony|HarmonyOS)[\s/]+([\d.]+)/.exec(ua)
+  if (harmony) return `HarmonyOS ${harmony[1]}`
+  if (/OpenHarmony|HarmonyOS/.test(ua)) return 'HarmonyOS'
+
   if (/Android ([\d.]+)/.test(ua)) {
     return `Android ${majorVersion(/Android ([\d.]+)/.exec(ua)?.[1])}`.trim()
   }
@@ -58,7 +65,7 @@ function detectOs(ua: string): string {
 
 function detectDeviceType(ua: string): DeviceDescription['deviceType'] {
   if (/iPad|Tablet/i.test(ua)) return '平板'
-  if (/Mobile|Android|iPhone|iPod/i.test(ua)) return '手机'
+  if (/Mobile|Android|iPhone|iPod|Phone/i.test(ua)) return '手机'
   return '桌面设备'
 }
 
