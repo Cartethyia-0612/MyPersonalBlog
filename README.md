@@ -15,11 +15,11 @@
 - 浅色 / 深色 / 跟随系统三模式，首屏前置应用并本地记忆；顶部设置按钮统一切换主题
 - 全站毛玻璃与光晕模糊 0–5 档可调，显示设置内滑杆切换，0.2 秒平滑过渡，0 档关闭
 - 网站默认字体：霞鹜文楷 GB + Maple Mono；可在同一设置面板切换为系统字体
-- 首次进入加载界面会等待首屏路由、字体与 eager 资源加载完成后再淡出（15 秒网络异常兜底）；打字机特效只播放一次；路由顶部进度条、页面过渡；尊重 `prefers-reduced-motion`
+- 首次进入加载界面会等待首屏路由、字体与 eager 资源加载完成后再淡出（15 秒网络异常兜底）；打字机逐字播放一次，完成后保留文字并停止光标；路由顶部进度条、页面过渡；尊重 `prefers-reduced-motion`
 - 阅读进度圆环「返回顶部」按钮：页面位于顶部时自动隐藏，滚离顶部后显示滚动百分比；桌面端悬停 / 键盘聚焦时切换为向上箭头，触摸设备常显箭头
 - 文章 Markdown 渲染、代码高亮、标签筛选、分页、阅读时长
-- 每个 Markdown 代码块右上角悬浮复制按钮，悬停 / 聚焦完全显示，复制成功显示 `✔`，1 秒后恢复；按钮独立于横向滚动容器，长代码行滚动时不会被裁切或带走
-- 外部链接出站安全提醒：显示目标域名与完整 URL，支持「记住我的选择」；站内跳转、`beian.miit.gov.cn` 与 `beian.mps.gov.cn` 自动豁免
+- 每个 Markdown 代码块右上角悬浮复制图标，悬停 / 聚焦完全显示，复制成功切换为勾选图标，1 秒后恢复；按钮独立于横向滚动容器，长代码行滚动时不会被裁切或带走
+- 外部链接出站安全提醒：显示目标域名与完整 URL，支持「记住我的选择」；站内跳转、`beian.miit.gov.cn` 与 `beian.mps.gov.cn` 自动豁免；确认后始终只在新标签页打开，本页保持不动
 - 响应式布局与可访问性细节
 - 页脚预留 ICP 备案、公安备案、虚拟备案地址列表（可增删，自定义显示文本与链接）、自定义文本与版权文案；BUILD_INFO 显示版本号与构建时间
 - RSS 2.0 订阅源：`/rss.xml`，自动包含已发布文章，支持浏览器/阅读器订阅发现
@@ -30,6 +30,7 @@
 ### 后台（`/admin`）
 
 - 密码登录 + Cap 人机验证 + 可选 TOTP 两步验证
+- 「记住该浏览器」：默认登录凭据保留 1 天，勾选后延长至 30 天
 - 仪表盘、文章管理 / Markdown 编辑器 / 草稿与发布
 - 关于页编辑、友链管理、站点 Icon 上传
 - 全局设置：站点身份、站点 URL、站点 Icon、作者、页脚备案
@@ -37,15 +38,19 @@
 - 音乐管理：Meting API 地址、固定歌单 CRUD、曲目预览
 - SEO 管理：sitemap 状态、IndexNow Key、百度 Token、推送状态与历史
 - 安全设置：修改密码、TOTP 启停；修改密码时吊销其他设备的会话
-- 后台同样支持显示设置面板（主题与字体）
+- 登录设备管理：记录浏览器、系统、IP、登录时间与最近活动，可单独下线其他设备或一键退登所有设备
+- 修改密码、启停 TOTP、下线设备等敏感操作会弹出人机验证，服务端校验一次性 token
+- 后台同样支持显示设置面板（主题、字体与模糊）
 
 ### 安全与合规
 
 - 后台密码 bcrypt 哈希存储（cost 12）
-- 登录接入 Cap（`capjs-core` + `cap-widget`）HashWX 人机验证；`used_tokens` 表记录 challenge nonce 与登录 token，二者均单次消费，重放请求直接拒绝
+- 登录接入 Cap（`capjs-core` + `cap-widget`）HashWX 人机验证；`used_tokens` 表记录 challenge nonce 与一次性 token，二者均单次消费，重放请求直接拒绝
+- 敏感操作需要重新完成人机验证；token 与当前用户绑定，登录 token 与敏感操作 token 互相隔离
 - 双提交 CSRF Token + Origin / Fetch Metadata 校验，覆盖登录及全部写接口（登录前使用匿名双提交 token）
 - 基于 SQLite 的登录失败限流与 TOTP 失败限流
-- 会话令牌仅以 SHA-256 哈希入库，HttpOnly + SameSite=Strict + 生产 Secure
+- 会话令牌仅以 SHA-256 哈希入库，HttpOnly + SameSite=Strict + 生产 Secure；默认 1 天，勾选记住浏览器后 30 天
+- 会话记录 User-Agent 与 IP，供登录设备管理展示；下线操作只影响当前账号
 - TOTP 密钥使用 AES-256-GCM 加密后入库
 - Helmet 安全响应头与自定义 CSP；CSP 允许 HTTPS 音乐封面与媒体
 - Markdown DOMPurify 清洗；上传按 magic number 校验，拒绝 SVG
@@ -213,7 +218,7 @@ server/                  Express API
   src/
     db/                  SQLite 连接 + 迁移
     middleware/          session、CSRF、auth
-    services/            内容、设置、Cap 人机验证、TOTP、Meting、SEO、上传
+    services/            内容、设置、Cap 人机验证、设备信息、TOTP、Meting、SEO、上传
     routes/              public / auth / admin / seo
   scripts/               setup、seed-demo、backup
   tests/                 Supertest + Vitest
@@ -239,9 +244,10 @@ docker-compose.yml       Docker Compose 单实例部署
 - `POST /api/auth/captcha/challenge`、`POST /api/auth/captcha/redeem`（登录页 Cap 组件使用）
 - `/api/admin/articles`、`/api/admin/friends`、`/api/admin/about`、`/api/admin/settings`
 - `/api/admin/music/playlists`、`/api/admin/seo`、`/api/admin/security`
+- `GET /api/admin/security/devices`、`DELETE /api/admin/security/devices/:id`、`DELETE /api/admin/security/devices`
 - `/api/admin/uploads`
 
-登录后的写接口要求会话绑定的 CSRF Token；登录接口使用匿名双提交 token，并必须携带 `POST /api/auth/captcha/redeem` 返回的 `captchaToken`。后台接口要求有效登录会话。
+登录后的写接口要求会话绑定的 CSRF Token；登录接口使用匿名双提交 token，并必须携带 `POST /api/auth/captcha/redeem` 返回的 `captchaToken`。`POST /api/auth/login` 可传 `rememberBrowser: true` 将凭据延长到 30 天。修改密码、启停 TOTP 与下线设备还需要 `X-Captcha-Token` 请求头。
 
 ## 部署
 

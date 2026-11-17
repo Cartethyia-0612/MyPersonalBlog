@@ -14,6 +14,8 @@
 - [ ] `COOKIE_SECURE=true`、`TRUST_PROXY=1`
 - [ ] `data/` 和 `uploads/` 在持久磁盘，权限正确
 - [ ] 管理员密码强且未使用示例密码；已开启 TOTP
+- [ ] 登录设备页可打开，当前设备标记正确；敏感操作会弹出人机验证
+- [ ] 日常会话 1 天、勾选「记住该浏览器」30 天的策略符合预期
 - [ ] 每日备份数据库 + uploads，并测试过恢复
 - [ ] 防火墙只开放 SSH / 80 / 443；Node 端口仅本机监听
 - [ ] 已配置域名、HTTPS、sitemap 与 SEO 推送 Key
@@ -511,6 +513,9 @@ SEO 首屏元信息由 Node 在返回 `index.html` 时注入，客户端路由�
 - [ ] `APP_SECRET` 随机、≥32 字符、权限 600、不更换，并已独立安全备份
 - [ ] 登录页 Cap 人机验证可正常完成；CSP 允许 `'wasm-unsafe-eval'` 与 `worker-src blob:`
 - [ ] 已确认 `used_tokens` 表存在，且登录 token 只能成功消费一次
+- [ ] 已迁移到 schema version 3，`used_tokens.user_id` 用于绑定敏感操作 token
+- [ ] 登录设备管理可单独下线其他设备；一键退登后所有浏览器需重新登录
+- [ ] 修改密码、启停 TOTP、下线设备均要求二次人机验证
 - [ ] 确认未使用任何示例或可猜测的管理员密码；项目不提供默认账号
 - [ ] 开启 TOTP，并妥善保存验证器 / 恢复方式
 - [ ] 不在公网暴露 SQLite 端口（本应用无数据库端口，仅文件）
@@ -526,9 +531,12 @@ SEO 首屏元信息由 Node 在返回 `index.html` 时注入，客户端路由�
 登录页使用 `capjs-core` 生成/校验 HashWX challenge，并由 `cap-widget` 在浏览器完成计算。两个 WASM 文件随前端构建产物一起发布，不依赖 jsDelivr，因此国内网络也能正常加载。
 
 - `POST /api/auth/captcha/challenge` 签发 challenge；`POST /api/auth/captcha/redeem` 校验并返回一次性的 `captchaToken`。
-- `used_tokens` 表保存 challenge nonce 与登录 token 的哈希：nonce 在 redeem 时立即消费，登录 token 在 `/api/auth/login` 时原子消费；同一 token 第二次使用会返回 `403 CAPTCHA_INVALID`。
+- `used_tokens` 表保存 challenge nonce 与一次性 token 的哈希：nonce 在 redeem 时立即消费，token 在登录或敏感操作时原子消费；同一 token 第二次使用会返回 `403 CAPTCHA_INVALID`。
+- 登录 token 的 `user_id` 为空；在已登录后台完成的人机验证会绑定当前用户，只能用于该用户的敏感操作。两类 token 不能互相冒用。
+- 修改密码、开启/关闭 TOTP、下线单台设备与一键退登所有设备，都需要在弹窗中重新完成人机验证；请求通过 `X-Captcha-Token` 请求头携带 token。
 - 密码错误也会消费 token，这是有意的：失败后必须重新完成人机验证。
 - 登录 token 默认 20 分钟有效；等待过久后刷新登录页即可。
+- 登录凭据默认保留 1 天；登录页勾选「记住该浏览器」后延长至 30 天。修改密码会吊销其他设备，但保留当前会话。
 - 如需独立轮换，配置 `CAP_SECRET`（≥16 字符）；未配置时从 `APP_SECRET` 做域分离派生，升级无需新增必填变量。
 
 ---
@@ -540,6 +548,10 @@ SEO 首屏元信息由 Node 在返回 `index.html` 时注入，客户端路由�
 | 登录/保存返回 403 CSRF                        | 检查 `SITE_URL` / `ALLOWED_ORIGINS` 是否包含浏览器实际 Origin；确认请求带 `X-CSRF-Token`。`TRUST_PROXY` 只影响客户端 IP 与限流，不决定 CSRF Origin 校验             |
 | 登录页人机验证一直加载失败                    | 检查浏览器能否加载 `/assets/*.wasm`；确认反向代理未改写 CSP；CSP 需包含 `script-src 'self' 'wasm-unsafe-eval'`、`worker-src 'self' blob:`；浏览器需支持 WebAssembly |
 | 登录提示「人机验证已失效」                    | token 已消费或超过 20 分钟；刷新登录页重新完成验证。一次密码登录（无论成功或密码错误）都会消费 token                                                                |
+| 敏感操作返回 `CAPTCHA_REQUIRED`               | 先在弹出的验证框中完成人机验证；若请求由脚本直接调用，需要先调用 challenge/redeem 并携带 `X-Captcha-Token`                                                          |
+| 登录设备列表为空或看不到旧设备                | 列表只显示 `expires_at` 未过期的当前账号会话；旧版本创建的 7 天会话仍会显示到其到期为止                                                                             |
+| 勾选「记住该浏览器」后仍很快退出              | 检查浏览器是否阻止持久 Cookie；确认 `COOKIE_SECURE` 与访问协议一致；确认没有清理站点数据                                                                            |
+| 一键退登后仍显示已登录                        | 确认响应已清除 `eshi_session` Cookie；多标签页需要刷新，其他设备应跳回登录页                                                                                        |
 | 登录后仍然未登录                              | HTTPS 下 `COOKIE_SECURE=true`；检查浏览器是否阻止第三方/安全 Cookie；确认没有多个域名混用                                                                           |
 | 登录 429                                      | 登录失败限流生效：密码窗口 15 分钟，TOTP 窗口 10 分钟；等待窗口结束或检查数据库 `login_attempts`                                                                    |
 | TOTP 永远验证失败                             | 服务器和手机时间需同步；检查 `APP_SECRET` 是否被更换                                                                                                                |
