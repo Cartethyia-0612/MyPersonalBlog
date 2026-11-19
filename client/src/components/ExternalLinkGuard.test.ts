@@ -12,14 +12,19 @@ function clickLink(href: string, target = ''): boolean {
   document.body.appendChild(anchor)
 
   let guardPrevented = false
-  anchor.addEventListener('click', (event) => {
+  const stopNavigation = (event: Event): void => {
     guardPrevented = event.defaultPrevented
     // Keep jsdom from trying to navigate the test document.
     event.preventDefault()
-  })
+  }
+  window.addEventListener('click', stopNavigation, { once: true })
 
   const event = new MouseEvent('click', { bubbles: true, cancelable: true, button: 0 })
-  anchor.dispatchEvent(event)
+  try {
+    anchor.dispatchEvent(event)
+  } finally {
+    window.removeEventListener('click', stopNavigation)
+  }
   return guardPrevented
 }
 
@@ -48,6 +53,24 @@ describe('ExternalLinkGuard', () => {
     expect(panel).not.toBeNull()
     expect(panel?.textContent).toContain('即将离开本站')
     expect(panel?.textContent).toContain('example.com')
+  })
+
+  it('does not intercept a link that handles its own click', async () => {
+    const open = vi.spyOn(window, 'open').mockReturnValue(null)
+    const anchor = document.createElement('a')
+    anchor.href = 'https://trycap.dev/'
+    anchor.target = '_blank'
+    document.body.appendChild(anchor)
+    anchor.addEventListener('click', (event) => {
+      event.preventDefault()
+      window.open(anchor.href, '_blank')
+    })
+
+    anchor.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, button: 0 }))
+    await nextTick()
+
+    expect(open).toHaveBeenCalledTimes(1)
+    expect(document.querySelector('.external-guard__panel')).toBeNull()
   })
 
   it('remembers the choice after confirming and allows the next link', async () => {

@@ -119,14 +119,17 @@ watch(pending, (value) => {
 })
 
 onMounted(() => {
-  document.addEventListener('click', onDocumentClick, true)
-  document.addEventListener('auxclick', onDocumentClick, true)
+  // Bubble phase: a link's own click handler runs first. If it already handled
+  // the click (for example Cap's attribution link calls preventDefault and
+  // window.open itself), the guard must not open a second tab or a prompt.
+  document.addEventListener('click', onDocumentClick)
+  document.addEventListener('auxclick', onDocumentClick)
   document.addEventListener('keydown', onDocumentKeydown)
 })
 
 onBeforeUnmount(() => {
-  document.removeEventListener('click', onDocumentClick, true)
-  document.removeEventListener('auxclick', onDocumentClick, true)
+  document.removeEventListener('click', onDocumentClick)
+  document.removeEventListener('auxclick', onDocumentClick)
   document.removeEventListener('keydown', onDocumentKeydown)
   document.body.style.overflow = previousBodyOverflow
 })
