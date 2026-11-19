@@ -43,14 +43,15 @@ describe('SPA fallback', () => {
     expect(response.body.error.code).toBe('NOT_FOUND')
   })
 
-  it('serves the SPA index for unknown paths, including dotted junk', async () => {
+  it('serves the SPA index with a 404 status for unknown paths', async () => {
     const app = setup()
 
     for (const pathname of ['/missing-page', '/random.asset.js', '/articles/not-a-real-post']) {
       const response = await request(app).get(pathname)
-      expect(response.status, pathname).toBe(200)
+      expect(response.status, pathname).toBe(404)
       expect(response.headers['content-type'], pathname).toContain('text/html')
       expect(response.text, pathname).toContain('<div id="app"></div>')
+      expect(response.text, pathname).toContain('noindex, nofollow')
     }
   })
 

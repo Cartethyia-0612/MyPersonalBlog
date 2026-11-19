@@ -60,10 +60,10 @@ export function getPageMeta(db: Db, config: AppConfig, pathname: string): PageMe
   const base = normalizeBaseUrl(db, config)
   const siteName = site.name || SITE_NAME_FALLBACK
   const description = site.description || site.tagline || '个人技术札记'
-  const canonicalPath = pathname === '/' ? '/' : pathname.replace(/\/+$/, '')
-  const canonical = `${base}${canonicalPath}`
+  const routePath = pathname === '/' ? '/' : pathname.replace(/\/+$/, '') || '/'
+  const canonical = `${base}${routePath}`
 
-  if (pathname === '/') {
+  if (routePath === '/') {
     return {
       status: 200,
       title: siteName,
@@ -75,7 +75,7 @@ export function getPageMeta(db: Db, config: AppConfig, pathname: string): PageMe
     }
   }
 
-  if (pathname === '/articles') {
+  if (routePath === '/articles') {
     return {
       status: 200,
       title: `文章归档 · ${siteName}`,
@@ -87,8 +87,8 @@ export function getPageMeta(db: Db, config: AppConfig, pathname: string): PageMe
     }
   }
 
-  if (pathname.startsWith('/articles/')) {
-    const rawSlug = pathname.slice('/articles/'.length)
+  if (routePath.startsWith('/articles/')) {
+    const rawSlug = routePath.slice('/articles/'.length)
     let slug = rawSlug
     try {
       slug = decodeURIComponent(rawSlug)
@@ -121,7 +121,7 @@ export function getPageMeta(db: Db, config: AppConfig, pathname: string): PageMe
     }
   }
 
-  if (pathname === '/friends') {
+  if (routePath === '/friends') {
     return {
       status: 200,
       title: `友链 · ${siteName}`,
@@ -133,7 +133,7 @@ export function getPageMeta(db: Db, config: AppConfig, pathname: string): PageMe
     }
   }
 
-  if (pathname === '/about') {
+  if (routePath === '/about') {
     return {
       status: 200,
       title: `关于 · ${siteName}`,
@@ -145,7 +145,7 @@ export function getPageMeta(db: Db, config: AppConfig, pathname: string): PageMe
     }
   }
 
-  if (pathname === '/admin' || pathname.startsWith('/admin/')) {
+  if (routePath === '/admin' || routePath.startsWith('/admin/')) {
     return {
       status: 200,
       title: `管理后台 · ${siteName}`,
@@ -232,18 +232,19 @@ export function renderSpaHtml(
   db: Db,
   config: AppConfig,
   pathname: string,
+  metaOverride?: PageMeta,
 ): { status: number; html: string } | null {
   const indexHtml = readIndexHtml(config)
   if (!indexHtml) return null
 
-  const meta = getPageMeta(db, config, pathname)
+  const meta = metaOverride ?? getPageMeta(db, config, pathname)
   let html = indexHtml
-    .replace(/<title>[\s\S]*?<\/title>/i, `<title>${escapeHtml(meta.title)}</title>`)
+    .replace(/<title>[\s\S]*?<\/title>/i, () => `<title>${escapeHtml(meta.title)}</title>`)
     .replace(/<meta\s+name="description"[^>]*>/gi, '')
     .replace(/<meta\s+name="robots"[^>]*>/gi, '')
     .replace(/<link\s+rel="canonical"[^>]*>/gi, '')
 
-  html = html.replace('</head>', `    ${buildMetaTags(meta)}\n  </head>`)
+  html = html.replace('</head>', () => `    ${buildMetaTags(meta)}\n  </head>`)
   return { status: meta.status, html }
 }
 

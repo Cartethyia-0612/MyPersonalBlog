@@ -106,18 +106,15 @@ export function createApp({ config, db }: AppDependencies): Express {
     app.use(express.static(config.clientDistDir, { index: false, maxAge: '1h' }))
 
     // SPA fallback: every non-API GET/HEAD that did not match a real static
-    // file is handed to the Vue router, including unknown paths with suffixes.
-    // Known public/admin pages keep the server-injected SEO meta; unknown pages
-    // get the raw index and Vue renders its 404 view.
+    // file is handed to the Vue router. Known public/admin pages keep the
+    // server-injected SEO meta; unknown pages get the 404 meta and status.
     app.use((req, res, next) => {
       if (req.method !== 'GET' && req.method !== 'HEAD') return next()
       const meta = getPageMeta(db, config, req.path)
-      if (meta.status !== 404) {
-        const rendered = renderSpaHtml(db, config, req.path)
-        if (rendered) {
-          res.status(rendered.status).type('html').send(rendered.html)
-          return
-        }
+      const rendered = renderSpaHtml(db, config, req.path, meta)
+      if (rendered) {
+        res.status(meta.status).type('html').send(rendered.html)
+        return
       }
       res.sendFile(indexPath)
     })

@@ -72,6 +72,10 @@ describe('server-side page meta', () => {
     const missing = getPageMeta(testContext.db, testContext.config, '/missing-page')
     expect(missing.status).toBe(404)
     expect(missing.noindex).toBe(true)
+
+    const trailingSlash = getPageMeta(testContext.db, testContext.config, '/articles/')
+    expect(trailingSlash.status).toBe(200)
+    expect(trailingSlash.canonical).toBe('https://blog.example.com/articles')
   })
 
   it('marks admin routes noindex and keeps public pages indexable', () => {
@@ -105,6 +109,18 @@ describe('server-side page meta', () => {
     )
     expect(rendered?.html).toContain('property="article:tag" content="SEO"')
     expect(rendered?.html.match(/name="description"/g)).toHaveLength(1)
+
+    createArticle(testContext.db, {
+      title: '价格 $& 与 $1',
+      slug: 'literal-title',
+      summary: '替换字符必须保持字面量。',
+      contentMd: '正文',
+      coverUrl: '',
+      tags: [],
+      status: 'published',
+    })
+    const literal = renderSpaHtml(testContext.db, testContext.config, '/articles/literal-title')
+    expect(literal?.html).toContain('<title>价格 $&amp; 与 $1 · 饿师傅的技术札记</title>')
 
     const notFound = renderSpaHtml(testContext.db, testContext.config, '/nope')
     expect(notFound?.status).toBe(404)
