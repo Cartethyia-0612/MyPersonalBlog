@@ -24,6 +24,7 @@ import {
   generateTotpSecret,
   verifyTotpCode,
 } from '../services/totp'
+import { clearTotpLoginUses } from '../services/totpLoginUses'
 import {
   assertValidPassword,
   findUserById,
@@ -60,6 +61,13 @@ function getCurrentUserOrThrow(db: Db, userId: number | undefined) {
   const user = findUserById(db, userId)
   if (!user) throw new AppError(401, 'UNAUTHORIZED', '登录状态已失效')
   return user
+}
+
+function assertCredentialVersion(db: Db, userId: number, expected: number): void {
+  const current = findUserById(db, userId)
+  if (!current || current.credential_version !== expected) {
+    throw new AppError(409, 'CREDENTIALS_CHANGED', '账号凭据已变更，请刷新后重试')
+  }
 }
 
 export function createAdminRouter(db: Db, config: AppConfig): Router {
@@ -177,17 +185,25 @@ export function createAdminRouter(db: Db, config: AppConfig): Router {
       throw new AppError(400, 'INVALID_PASSWORD', '当前密码不正确')
     }
 
+    const latest = findUserById(db, user.id)
+    if (!latest || latest.credential_version !== user.credential_version) {
+      throw new AppError(409, 'CREDENTIALS_CHANGED', '账号凭据已变更，请刷新后重试')
+    }
+
     assertValidPassword(newPassword)
     const newHash = await hashPassword(newPassword)
-    db.prepare('UPDATE users SET password_hash = ?, updated_at = ? WHERE id = ?').run(
-      newHash,
-      new Date().toISOString(),
-      user.id,
-    )
+    db.transaction(() => {
+      assertCredentialVersion(db, user.id, user.credential_version)
+      db.prepare(
+        `UPDATE users
+         SET password_hash = ?, credential_version = credential_version + 1, updated_at = ?
+         WHERE id = ?`,
+      ).run(newHash, new Date().toISOString(), user.id)
 
-    if (req.sessionContext) {
-      revokeOtherSessions(db, user.id, req.sessionContext.id)
-    }
+      if (req.sessionContext) {
+        revokeOtherSessions(db, user.id, req.sessionContext.id)
+      }
+    })()
 
     res.json({ ok: true, message: '密码已更新，其他设备的登录状态已失效' })
   })
@@ -201,9 +217,15 @@ export function createAdminRouter(db: Db, config: AppConfig): Router {
     const secret = generateTotpSecret()
     const otpauthUrl = buildTotpUri(user.username, secret)
     const encrypted = encryptText(secret, config.appSecret)
-    db.prepare(
-      'UPDATE users SET totp_secret_enc = ?, totp_enabled = 0, updated_at = ? WHERE id = ?',
-    ).run(encrypted, new Date().toISOString(), user.id)
+    db.transaction(() => {
+      db.prepare(
+        `UPDATE users
+         SET totp_secret_enc = ?, totp_enabled = 0,
+             credential_version = credential_version + 1, updated_at = ?
+         WHERE id = ?`,
+      ).run(encrypted, new Date().toISOString(), user.id)
+      clearTotpLoginUses(db, user.id)
+    })()
 
     const qrDataUrl = await buildTotpQrDataUrl(otpauthUrl)
     res.json({
@@ -237,10 +259,14 @@ export function createAdminRouter(db: Db, config: AppConfig): Router {
       throw new AppError(400, 'INVALID_TOTP', '动态验证码不正确，请检查设备时间后重试')
     }
 
-    db.prepare('UPDATE users SET totp_enabled = 1, updated_at = ? WHERE id = ?').run(
-      new Date().toISOString(),
-      user.id,
-    )
+    db.transaction(() => {
+      db.prepare(
+        `UPDATE users
+         SET totp_enabled = 1, credential_version = credential_version + 1, updated_at = ?
+         WHERE id = ?`,
+      ).run(new Date().toISOString(), user.id)
+      clearTotpLoginUses(db, user.id)
+    })()
     res.json({ ok: true, totpEnabled: true })
   })
 
@@ -256,6 +282,11 @@ export function createAdminRouter(db: Db, config: AppConfig): Router {
       throw new AppError(400, 'INVALID_PASSWORD', '当前密码不正确')
     }
 
+    const latest = findUserById(db, user.id)
+    if (!latest || latest.credential_version !== user.credential_version) {
+      throw new AppError(409, 'CREDENTIALS_CHANGED', '账号凭据已变更，请刷新后重试')
+    }
+
     let secret: string
     try {
       secret = decryptText(user.totp_secret_enc, config.appSecret)
@@ -267,9 +298,16 @@ export function createAdminRouter(db: Db, config: AppConfig): Router {
       throw new AppError(400, 'INVALID_TOTP', '动态验证码不正确')
     }
 
-    db.prepare(
-      'UPDATE users SET totp_enabled = 0, totp_secret_enc = NULL, updated_at = ? WHERE id = ?',
-    ).run(new Date().toISOString(), user.id)
+    db.transaction(() => {
+      assertCredentialVersion(db, user.id, user.credential_version)
+      db.prepare(
+        `UPDATE users
+         SET totp_enabled = 0, totp_secret_enc = NULL,
+             credential_version = credential_version + 1, updated_at = ?
+         WHERE id = ?`,
+      ).run(new Date().toISOString(), user.id)
+      clearTotpLoginUses(db, user.id)
+    })()
 
     res.json({ ok: true, totpEnabled: false })
   })

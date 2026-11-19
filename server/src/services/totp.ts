@@ -5,6 +5,7 @@ import { randomToken, signPayload, verifySignedPayload } from '../lib/crypto'
 
 export const TOTP_ISSUER = '饿师傅的技术札记'
 export const TOTP_CHALLENGE_TTL_SECONDS = 5 * 60
+export const TOTP_PERIOD_SECONDS = 30
 
 authenticator.options = { window: 1 }
 
@@ -12,6 +13,7 @@ interface TotpChallengePayload {
   sub: number
   purpose: 'totp-login'
   remember: boolean
+  credentialVersion: number
   jti: string
   exp: number
 }
@@ -36,22 +38,34 @@ export async function buildTotpQrDataUrl(otpauthUrl: string): Promise<string> {
   })
 }
 
-export function verifyTotpCode(secret: string, code: string): boolean {
+export function verifyTotpCodeWithStep(secret: string, code: string): number | null {
   const normalized = code.replace(/\s+/g, '')
-  if (!/^\d{6}$/.test(normalized)) return false
+  if (!/^\d{6}$/.test(normalized)) return null
   try {
-    return authenticator.verify({ token: normalized, secret })
+    const delta = authenticator.checkDelta(normalized, secret)
+    if (delta === null) return null
+    return Math.floor(Date.now() / (TOTP_PERIOD_SECONDS * 1000)) + delta
   } catch {
-    return false
+    return null
   }
 }
 
-export function createLoginChallenge(userId: number, appSecret: string, remember: boolean): string {
+export function verifyTotpCode(secret: string, code: string): boolean {
+  return verifyTotpCodeWithStep(secret, code) !== null
+}
+
+export function createLoginChallenge(
+  userId: number,
+  appSecret: string,
+  remember: boolean,
+  credentialVersion: number,
+): string {
   return signPayload(
     {
       sub: userId,
       purpose: 'totp-login',
       remember,
+      credentialVersion,
       jti: randomToken(12),
     },
     appSecret,
@@ -67,5 +81,10 @@ export function verifyLoginChallenge(
   if (!payload || payload.purpose !== 'totp-login' || typeof payload.sub !== 'number') {
     return null
   }
-  return { ...payload, remember: payload.remember === true }
+  return {
+    ...payload,
+    remember: payload.remember === true,
+    credentialVersion:
+      typeof payload.credentialVersion === 'number' ? payload.credentialVersion : 0,
+  }
 }

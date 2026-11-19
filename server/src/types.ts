@@ -4,6 +4,7 @@ export interface UserRow {
   password_hash: string
   totp_secret_enc: string | null
   totp_enabled: number
+  credential_version: number
   created_at: string
   updated_at: string
 }

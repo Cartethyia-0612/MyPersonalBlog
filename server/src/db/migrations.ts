@@ -130,4 +130,34 @@ export const migrations: Migration[] = [
       CREATE INDEX idx_used_tokens_user ON used_tokens(user_id, purpose);
     `,
   },
+  {
+    version: 4,
+    name: 'credential_revision',
+    sql: `
+      ALTER TABLE users ADD COLUMN credential_version INTEGER NOT NULL DEFAULT 1;
+    `,
+  },
+  {
+    version: 5,
+    name: 'totp_login_replay_guard',
+    sql: `
+      CREATE TABLE totp_login_uses (
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        challenge_jti TEXT NOT NULL,
+        time_step INTEGER NOT NULL,
+        created_at TEXT NOT NULL,
+        PRIMARY KEY (user_id, challenge_jti)
+      );
+      CREATE UNIQUE INDEX idx_totp_login_uses_step ON totp_login_uses(user_id, time_step);
+      CREATE INDEX idx_totp_login_uses_created ON totp_login_uses(created_at);
+    `,
+  },
+  {
+    version: 6,
+    name: 'articles_public_index',
+    sql: `
+      CREATE INDEX idx_articles_public
+        ON articles(status, published_at DESC, id DESC);
+    `,
+  },
 ]

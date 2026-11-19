@@ -243,13 +243,11 @@ describe('admin authentication', () => {
     expect(passwordStep.body.requiresTotp).toBe(true)
     expect(typeof passwordStep.body.challengeToken).toBe('string')
 
-    const totpLogin = await agent
-      .post('/api/auth/login/totp')
-      .set('X-CSRF-Token', anonCsrf)
-      .send({
-        challengeToken: passwordStep.body.challengeToken,
-        code: authenticator.generate(secret),
-      })
+    const totpCode = authenticator.generate(secret)
+    const totpLogin = await agent.post('/api/auth/login/totp').set('X-CSRF-Token', anonCsrf).send({
+      challengeToken: passwordStep.body.challengeToken,
+      code: totpCode,
+    })
     expect(totpLogin.status).toBe(200)
     expect(totpLogin.body.requiresTotp).toBe(false)
     expect(totpLogin.body.user.totpEnabled).toBe(true)
@@ -258,8 +256,65 @@ describe('admin authentication', () => {
       'Max-Age=2592000',
     )
 
+    const replay = await agent
+      .post('/api/auth/login/totp')
+      .set('X-CSRF-Token', totpLogin.body.csrfToken as string)
+      .send({
+        challengeToken: passwordStep.body.challengeToken,
+        code: totpCode,
+      })
+    expect(replay.status).toBe(401)
+    expect(replay.body.error.code).toBe('TOTP_REPLAY')
+
     const session = await agent.get('/api/auth/session')
     expect(session.body.authenticated).toBe(true)
+  })
+
+  it('invalidates a TOTP challenge when the credential revision changes', async () => {
+    const { agent, csrfToken, context: testContext } = await createAgentContext()
+    context = testContext
+    await seedAdmin(testContext.db)
+
+    const authedCsrf = await loginAsAdmin(agent, csrfToken, testContext.db)
+    const setup = await agent
+      .post('/api/admin/security/totp/setup')
+      .set('X-CSRF-Token', authedCsrf)
+      .send({})
+    const secret = setup.body.secret as string
+    await agent
+      .post('/api/admin/security/totp/enable')
+      .set('X-CSRF-Token', authedCsrf)
+      .set('X-Captcha-Token', issueSensitiveCaptchaToken(testContext.db))
+      .send({ code: authenticator.generate(secret) })
+
+    await agent.post('/api/auth/logout').set('X-CSRF-Token', authedCsrf)
+    const anonSession = await agent.get('/api/auth/session')
+    const anonCsrf = anonSession.body.csrfToken as string
+
+    const passwordStep = await agent
+      .post('/api/auth/login')
+      .set('X-CSRF-Token', anonCsrf)
+      .send({
+        username: ADMIN_USERNAME,
+        password: ADMIN_PASSWORD,
+        captchaToken: issueCaptchaToken(testContext.db),
+      })
+    expect(passwordStep.body.requiresTotp).toBe(true)
+
+    testContext.db
+      .prepare('UPDATE users SET credential_version = credential_version + 1 WHERE username = ?')
+      .run(ADMIN_USERNAME)
+
+    const totpLogin = await agent
+      .post('/api/auth/login/totp')
+      .set('X-CSRF-Token', anonCsrf)
+      .send({
+        challengeToken: passwordStep.body.challengeToken,
+        code: authenticator.generate(secret),
+      })
+
+    expect(totpLogin.status).toBe(401)
+    expect(totpLogin.body.error.code).toBe('CREDENTIALS_CHANGED')
   })
 
   it('rejects TOTP login with an invalid code', async () => {

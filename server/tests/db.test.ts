@@ -27,11 +27,17 @@ describe('database migrations', () => {
     expect(tables).toContain('settings')
     expect(tables).toContain('seo_push_logs')
     expect(tables).toContain('used_tokens')
+    expect(tables).toContain('totp_login_uses')
     const tokenColumns = db
       .prepare('PRAGMA table_info(used_tokens)')
       .all()
       .map((row) => (row as { name: string }).name)
     expect(tokenColumns).toContain('user_id')
+    const userColumns = db
+      .prepare('PRAGMA table_info(users)')
+      .all()
+      .map((row) => (row as { name: string }).name)
+    expect(userColumns).toContain('credential_version')
 
     const settingsCount = db.prepare('SELECT COUNT(*) AS count FROM settings').get() as {
       count: number

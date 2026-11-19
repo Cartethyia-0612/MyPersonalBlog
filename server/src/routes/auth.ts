@@ -22,7 +22,12 @@ import {
   enforceAttemptLimit,
   recordFailedAttempt,
 } from '../services/loginAttempts'
-import { createLoginChallenge, verifyLoginChallenge, verifyTotpCode } from '../services/totp'
+import {
+  createLoginChallenge,
+  verifyLoginChallenge,
+  verifyTotpCodeWithStep,
+} from '../services/totp'
+import { consumeTotpLoginUse } from '../services/totpLoginUses'
 import { consumeLoginToken, tokenKeyFromToken } from '../services/captcha'
 import {
   createSession,
@@ -76,19 +81,6 @@ export function createAuthRouter(db: Db, config: AppConfig): Router {
     const accountKey = buildPasswordAttemptKey(ip, username)
     const ipKey = buildIpAttemptKey(ip)
 
-    enforceAttemptLimit(db, {
-      key: accountKey,
-      kind: 'password',
-      limit: 5,
-      windowMs: PASSWORD_WINDOW_MS,
-    })
-    enforceAttemptLimit(db, {
-      key: ipKey,
-      kind: 'password-ip',
-      limit: 20,
-      windowMs: PASSWORD_WINDOW_MS,
-    })
-
     if (!captchaToken) {
       throw new AppError(400, 'CAPTCHA_REQUIRED', '请先完成人机验证')
     }
@@ -100,23 +92,53 @@ export function createAuthRouter(db: Db, config: AppConfig): Router {
       throw new AppError(403, 'CAPTCHA_INVALID', '人机验证已失效，请重新验证')
     }
 
+    db.transaction(() => {
+      enforceAttemptLimit(db, {
+        key: accountKey,
+        kind: 'password',
+        limit: 5,
+        windowMs: PASSWORD_WINDOW_MS,
+      })
+      enforceAttemptLimit(db, {
+        key: ipKey,
+        kind: 'password-ip',
+        limit: 20,
+        windowMs: PASSWORD_WINDOW_MS,
+      })
+      // Reserve the attempt before the expensive bcrypt work so a burst of
+      // parallel guesses cannot all pass the limiter before any failure lands.
+      recordFailedAttempt(db, accountKey, 'password')
+      recordFailedAttempt(db, ipKey, 'password-ip')
+    })()
+
     const user = findUserByUsername(db, username)
     const valid = await verifyPasswordForUser(password, user)
 
     if (!valid || !user) {
-      recordFailedAttempt(db, accountKey, 'password')
-      recordFailedAttempt(db, ipKey, 'password-ip')
       throw new AppError(401, 'INVALID_CREDENTIALS', '用户名或密码不正确')
     }
 
+    // bcrypt yields to the event loop. Re-read the user so a concurrent
+    // password or MFA change cannot be overwritten by this older snapshot.
+    const currentUser = findUserById(db, user.id)
+    if (!currentUser || currentUser.credential_version !== user.credential_version) {
+      throw new AppError(401, 'CREDENTIALS_CHANGED', '登录凭据已变更，请重新验证')
+    }
+
     clearFailedAttempts(db, accountKey)
+    clearFailedAttempts(db, ipKey)
     deleteExpiredSessions(db)
 
-    if (user.totp_enabled) {
-      if (!user.totp_secret_enc) {
+    if (currentUser.totp_enabled) {
+      if (!currentUser.totp_secret_enc) {
         throw new AppError(500, 'TOTP_MISCONFIGURED', '两步验证配置异常，请联系站点管理员')
       }
-      const challengeToken = createLoginChallenge(user.id, config.appSecret, remember)
+      const challengeToken = createLoginChallenge(
+        currentUser.id,
+        config.appSecret,
+        remember,
+        currentUser.credential_version,
+      )
       return res.json({
         requiresTotp: true,
         challengeToken,
@@ -127,7 +149,7 @@ export function createAuthRouter(db: Db, config: AppConfig): Router {
     const ttlDays = sessionTtlDays(config, remember)
     const session = createSession(
       db,
-      user.id,
+      currentUser.id,
       { ip, userAgent: req.get('user-agent') ?? '' },
       ttlDays,
     )
@@ -136,7 +158,7 @@ export function createAuthRouter(db: Db, config: AppConfig): Router {
 
     return res.json({
       requiresTotp: false,
-      user: toPublicUser(user),
+      user: toPublicUser(currentUser),
       csrfToken: session.csrfToken,
       expiresAt: session.expiresAt,
     })
@@ -154,6 +176,9 @@ export function createAuthRouter(db: Db, config: AppConfig): Router {
     if (!user || !user.totp_enabled || !user.totp_secret_enc) {
       throw new AppError(401, 'INVALID_CREDENTIALS', '登录验证失败')
     }
+    if (user.credential_version !== challenge.credentialVersion) {
+      throw new AppError(401, 'CREDENTIALS_CHANGED', '登录凭据已变更，请重新验证')
+    }
 
     const attemptKey = buildTotpAttemptKey(ip, user.id)
     enforceAttemptLimit(db, {
@@ -170,7 +195,8 @@ export function createAuthRouter(db: Db, config: AppConfig): Router {
       throw new AppError(500, 'TOTP_MISCONFIGURED', '两步验证配置异常，请联系站点管理员')
     }
 
-    if (!verifyTotpCode(secret, code)) {
+    const timeStep = verifyTotpCodeWithStep(secret, code)
+    if (timeStep === null) {
       recordFailedAttempt(db, attemptKey, 'totp')
       throw new AppError(401, 'INVALID_TOTP', '动态验证码不正确')
     }
@@ -180,12 +206,12 @@ export function createAuthRouter(db: Db, config: AppConfig): Router {
 
     const remember = challenge.remember
     const ttlDays = sessionTtlDays(config, remember)
-    const session = createSession(
-      db,
-      user.id,
-      { ip, userAgent: req.get('user-agent') ?? '' },
-      ttlDays,
-    )
+    const session = db.transaction(() => {
+      if (!consumeTotpLoginUse(db, user.id, challenge.jti, timeStep)) {
+        throw new AppError(401, 'TOTP_REPLAY', '该动态验证码已使用，请等待下一次刷新')
+      }
+      return createSession(db, user.id, { ip, userAgent: req.get('user-agent') ?? '' }, ttlDays)
+    })()
     setSessionCookie(res, session.rawToken, config, ttlDays)
     setCsrfCookie(res, session.csrfToken, config, ttlDays)
 
