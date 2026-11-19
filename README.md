@@ -23,7 +23,7 @@
 - 响应式布局与可访问性细节
 - 页脚预留 ICP 备案、公安备案、虚拟备案地址列表（可增删，自定义显示文本与链接）、自定义文本与版权文案；BUILD_INFO 显示版本号与构建时间
 - RSS 2.0 订阅源：`/rss.xml`，自动包含已发布文章，支持浏览器/阅读器订阅发现
-- 音乐播放器：Meting 代理、多固定歌单、播放/暂停、上一首/下一首、列表循环/单曲循环/随机、进度、音量、歌单切换；支持向下箭头隐藏，并在左下角保留悬浮恢复按钮（显示当前曲目封面，失败回退音符图标；隐藏时音乐继续）；移动端音量以按钮展开浮层调节，滑条限制在浮层内并水平居中
+- 音乐播放器：Meting 代理、多固定歌单、播放/暂停、上一首/下一首、列表循环/单曲循环/随机、进度、音量、歌单切换；服务端对上游设置 12 秒总超时、5 MiB 流式上限，并合并同歌单并发冷请求；支持向下箭头隐藏，并在左下角保留悬浮恢复按钮（显示当前曲目封面，失败回退音符图标；隐藏时音乐继续）；移动端音量以按钮展开浮层调节，滑条限制在浮层内并水平居中
 - 正在播放信息同步至浏览器/系统媒体控制中心（Media Session）：歌名、歌手、专辑图、播放状态、上下曲与进度控制
 - 服务端对公开页首屏注入 title / description / canonical / Open Graph / article meta
 
@@ -44,7 +44,8 @@
 
 ### 安全与合规
 
-- 后台密码 bcrypt 哈希存储（cost 12）
+- 后台密码 bcrypt 哈希存储（cost 12）；密码按 UTF-8 字节限制为 72 字节以内
+- TOTP 登录 challenge 与 30 秒时间步均只能使用一次；密码 / MFA 变更会使旧 challenge 失效
 - 登录接入 Cap（`capjs-core` + `cap-widget`）HashWX 人机验证；`used_tokens` 表记录 challenge nonce 与一次性 token，二者均单次消费，重放请求直接拒绝
 - 敏感操作需要重新完成人机验证；token 与当前用户绑定，登录 token 与敏感操作 token 互相隔离
 - 双提交 CSRF Token + Origin / Fetch Metadata 校验，覆盖登录及全部写接口（登录前使用匿名双提交 token）
@@ -169,20 +170,20 @@ HOST=127.0.0.1
 
 ## 环境变量
 
-| 变量                                | 必填     | 说明                                                                                         |
-| ----------------------------------- | -------- | -------------------------------------------------------------------------------------------- |
-| `APP_SECRET`                        | 是       | ≥32 字符，用于会话挑战签名与 TOTP 密钥加密；部署后不要更换，否则 TOTP 无法解密               |
-| `CAP_SECRET`                        | 否       | Cap 人机验证签发密钥，≥16 字符；留空时从 `APP_SECRET` 做域分离派生，设置后可独立轮换         |
-| `SITE_URL`                          | 生产必填 | 站点公开地址，无末尾斜杠；SEO、canonical、CSRF Origin 使用；开发默认 `http://localhost:5173` |
-| `HOST`                              | 否       | 监听地址，默认 `127.0.0.1`；本地/VPS 反向代理模式保持默认，容器/PaaS 设为 `0.0.0.0`          |
-| `PORT`                              | 否       | Node 端口，默认 3000；Vite 开发代理会读取同一值                                              |
-| `NODE_ENV`                          | 否       | development / production                                                                     |
-| `COOKIE_SECURE`                     | 否       | HTTPS 生产环境设为 true；本地 HTTP 设为 false                                                |
-| `TRUST_PROXY`                       | 否       | 在 Nginx 等反向代理后设为 1；影响客户端 IP 与限流，不参与 CSRF Origin 判断                   |
-| `DB_PATH`                           | 否       | SQLite 路径，默认 `data/blog.db`                                                             |
-| `UPLOAD_DIR`                        | 否       | 上传目录，默认 `uploads/`                                                                    |
-| `ALLOWED_ORIGINS`                   | 否       | 额外允许的写请求 Origin，逗号分隔；`SITE_URL` 始终允许                                       |
-| `ADMIN_USERNAME` / `ADMIN_PASSWORD` | 否       | 仅用于非交互式 `pnpm run setup`，不要写入仓库                                                |
+| 变量                                | 必填     | 说明                                                                                           |
+| ----------------------------------- | -------- | ---------------------------------------------------------------------------------------------- |
+| `APP_SECRET`                        | 是       | ≥32 字符，用于会话挑战签名与 TOTP 密钥加密；部署后不要更换，否则 TOTP 无法解密                 |
+| `CAP_SECRET`                        | 否       | Cap 人机验证签发密钥，≥16 字符；留空时从 `APP_SECRET` 做域分离派生，设置后可独立轮换           |
+| `SITE_URL`                          | 生产必填 | 站点公开 origin（如 `https://blog.example.com`），生产环境必须显式设置；不能带路径、查询或凭据 |
+| `HOST`                              | 否       | 监听地址，默认 `127.0.0.1`；本地/VPS 反向代理模式保持默认，容器/PaaS 设为 `0.0.0.0`            |
+| `PORT`                              | 否       | Node 端口，默认 3000；Vite 开发代理会读取同一值                                                |
+| `NODE_ENV`                          | 否       | development / production                                                                       |
+| `COOKIE_SECURE`                     | 否       | HTTPS 生产环境设为 true；本地 HTTP 设为 false                                                  |
+| `TRUST_PROXY`                       | 否       | 在 Nginx 等反向代理后设为 1；影响客户端 IP 与限流，不参与 CSRF Origin 判断                     |
+| `DB_PATH`                           | 否       | SQLite 路径，默认 `data/blog.db`                                                               |
+| `UPLOAD_DIR`                        | 否       | 上传目录，默认 `uploads/`                                                                      |
+| `ALLOWED_ORIGINS`                   | 否       | 额外允许的写请求 Origin，逗号分隔；`SITE_URL` 始终允许                                         |
+| `ADMIN_USERNAME` / `ADMIN_PASSWORD` | 否       | 仅用于非交互式 `pnpm run setup`，不要写入仓库                                                  |
 
 > `.env`、`data/`、`uploads/`、`backups/` 均已被 Git 忽略，不会进入仓库。
 
@@ -199,7 +200,7 @@ HOST=127.0.0.1
 | `pnpm format` / `pnpm format:check` | Prettier                                                      |
 | `pnpm run setup`                    | 创建管理员（交互式）                                          |
 | `pnpm seed:demo`                    | 写入可删除的演示文章 / 友链 / 歌单                            |
-| `pnpm backup`                       | 使用 SQLite 在线备份 API 备份数据库和上传文件                 |
+| `pnpm backup`                       | 在线备份数据库和上传文件；先写临时目录，完整性检查后原子发布  |
 | `pnpm check:no-comments`            | 无评论功能自动守卫                                            |
 | `pnpm --filter @eshi/server start`  | 启动已构建的完整应用（需先 build，含 SPA/SEO）                |
 

@@ -9,7 +9,7 @@
 - [ ] Node.js ≥ 22.12（推荐 24 LTS），pnpm ≥ 11
 - [ ] `APP_SECRET` ≥ 32 字符且长期保持不变；已与备份分开安全保存
 - [ ] `CAP_SECRET` 可选：未设置时由 `APP_SECRET` 派生；如单独设置，≥16 字符并单独备份
-- [ ] `SITE_URL` 是真实公网 HTTPS 地址（SEO 推送必需）
+- [ ] `SITE_URL` 是真实公网 HTTPS origin（只含协议、域名和可选端口，不能带路径/查询）
 - [ ] `HOST=127.0.0.1`，Node 端口只监听本机
 - [ ] `COOKIE_SECURE=true`、`TRUST_PROXY=1`
 - [ ] `data/` 和 `uploads/` 在持久磁盘，权限正确
@@ -176,7 +176,7 @@ ALLOWED_ORIGINS=
 
 - `HOST=127.0.0.1` 让 Node 只监听本机回环地址，公网请求必须经过 Nginx；不要在手动部署中改成 `0.0.0.0`。
 - `APP_SECRET` 部署后不要更换，否则 TOTP 密钥无法解密。
-- `SITE_URL` 必须与浏览器访问的最终 HTTPS 域名完全一致（含 `www` 与否）。
+- `SITE_URL` 生产必须显式设置，且只能是 origin（如 `https://blog.example.com`）；必须与浏览器访问的最终 HTTPS 域名完全一致（含 `www` 与否），不能带路径、查询、`#` 或账号密码。
 - 如改端口，Nginx 的 `proxy_pass` 也要同步。
 
 ### 2.4 初始化管理员
@@ -429,7 +429,10 @@ pnpm backup
 ```text
 backups/2026-11-11T.../blog.db
 backups/2026-11-11T.../uploads/
+backups/2026-11-11T.../.complete
 ```
+
+备份先写入同级的 `.staging` 目录，SQLite 备份完成后执行 `integrity_check`，通过后才原子重命名为正式时间戳目录。没有 `.complete` 的目录可能是不完整备份，恢复时不要使用；失败时临时目录会被清理。
 
 请将备份目录同步到另一台机器或对象存储，例如：
 
@@ -513,9 +516,10 @@ SEO 首屏元信息由 Node 在返回 `index.html` 时注入，客户端路由�
 - [ ] `APP_SECRET` 随机、≥32 字符、权限 600、不更换，并已独立安全备份
 - [ ] 登录页 Cap 人机验证可正常完成；CSP 允许 `'wasm-unsafe-eval'` 与 `worker-src blob:`
 - [ ] 已确认 `used_tokens` 表存在，且登录 token 只能成功消费一次
-- [ ] 已迁移到 schema version 3，`used_tokens.user_id` 用于绑定敏感操作 token
+- [ ] 已迁移到 schema version 6：`used_tokens.user_id`、会话凭据版本、TOTP 防重放表与文章公开索引存在
 - [ ] 登录设备管理可单独下线其他设备；一键退登后所有浏览器需重新登录
 - [ ] 修改密码、启停 TOTP、下线设备均要求二次人机验证
+- [ ] 密码按 UTF-8 字节控制在 72 字节以内；TOTP challenge / 时间步均为一次性
 - [ ] 确认未使用任何示例或可猜测的管理员密码；项目不提供默认账号
 - [ ] 开启 TOTP，并妥善保存验证器 / 恢复方式
 - [ ] 不在公网暴露 SQLite 端口（本应用无数据库端口，仅文件）
@@ -554,6 +558,9 @@ SEO 首屏元信息由 Node 在返回 `index.html` 时注入，客户端路由�
 | 一键退登后仍显示已登录                        | 确认响应已清除 `eshi_session` Cookie；多标签页需要刷新，其他设备应跳回登录页                                                                                        |
 | 登录后仍然未登录                              | HTTPS 下 `COOKIE_SECURE=true`；检查浏览器是否阻止第三方/安全 Cookie；确认没有多个域名混用                                                                           |
 | 登录 429                                      | 登录失败限流生效：密码窗口 15 分钟，TOTP 窗口 10 分钟；等待窗口结束或检查数据库 `login_attempts`                                                                    |
+| 启动报 `SITE_URL must be an origin only`      | `.env` 的 `SITE_URL` 只能写 `https://domain` 或 `http://host:port`，不能带 `/path`、查询、`#` 或账号密码；生产必须显式设置                                          |
+| TOTP 提示验证码已使用                         | 同一 challenge 或同一 30 秒时间步只能登录一次；等待验证器刷新出新验证码后重试                                                                                       |
+| 音乐歌单 504 / 502                            | 上游 Meting 超过 12 秒、返回超过 5 MiB 或网络异常；检查 API 地址、上游状态与网络，服务端不会无限缓冲响应体                                                          |
 | TOTP 永远验证失败                             | 服务器和手机时间需同步；检查 `APP_SECRET` 是否被更换                                                                                                                |
 | 数据库 `SQLITE_BUSY`                          | 确认只有一个实例在写；不要在容器副本间共享 DB；检查磁盘权限                                                                                                         |
 | 上传失败                                      | 检查 `UPLOAD_DIR` 写权限、反向代理 `client_max_body_size`、图片是否 ≤2MB 且为支持的格式（不允许 SVG）                                                               |
