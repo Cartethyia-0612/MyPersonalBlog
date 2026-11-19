@@ -272,17 +272,9 @@ useSeo(() => ({
                     class="input"
                     placeholder="苏公网安备…号"
                   />
+                  <span class="hint">链接将根据备案号自动生成，无需手动填写。</span>
                 </label>
               </div>
-              <label class="admin-label">
-                公安备案链接（可选）
-                <input
-                  v-model="form.footer.policeUrl"
-                  class="input"
-                  type="url"
-                  placeholder="https://beian.mps.gov.cn/…"
-                />
-              </label>
               <div class="settings-repeater">
                 <div class="settings-repeater__head">
                   <div>

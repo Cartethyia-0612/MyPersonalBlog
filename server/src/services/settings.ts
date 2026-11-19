@@ -59,6 +59,13 @@ export const DEFAULT_SEO_SETTINGS: SeoSettings = {
   baiduToken: '',
 }
 
+const POLICE_BEIAN_QUERY_BASE = 'https://beian.mps.gov.cn/#/query/webSearch?code='
+
+export function buildPoliceBeianUrl(policeIcp: string): string {
+  const code = policeIcp.trim()
+  return code ? `${POLICE_BEIAN_QUERY_BASE}${encodeURIComponent(code)}` : ''
+}
+
 function readSetting<T extends object>(db: Db, key: string, fallback: T): T {
   const row = db.prepare('SELECT value_json FROM settings WHERE key = ?').get(key) as
     { value_json: string } | undefined
@@ -116,6 +123,7 @@ export function getFooterSettings(db: Db): FooterSettings {
     DEFAULT_FOOTER_SETTINGS as StoredFooterSettings,
   )
   const virtualRecords = normalizeVirtualRecords(stored.virtualRecords)
+  const policeIcp = stringValue(stored.policeIcp).trim()
   if (virtualRecords.length === 0) {
     const legacyText = stringValue(stored.virtualRecord).trim()
     if (legacyText) {
@@ -128,8 +136,8 @@ export function getFooterSettings(db: Db): FooterSettings {
 
   return {
     icp: stringValue(stored.icp),
-    policeIcp: stringValue(stored.policeIcp),
-    policeUrl: stringValue(stored.policeUrl),
+    policeIcp,
+    policeUrl: buildPoliceBeianUrl(policeIcp),
     virtualRecords,
     customText: stringValue(stored.customText),
     copyright: stringValue(stored.copyright),
@@ -163,12 +171,18 @@ export function updateSiteSettings(db: Db, patch: Partial<SiteSettings>): SiteSe
 
 export function updateFooterSettings(db: Db, patch: Partial<FooterSettings>): FooterSettings {
   const current = getFooterSettings(db)
-  const next: FooterSettings = {
+  const merged: FooterSettings = {
     ...current,
     ...patch,
     virtualRecords: normalizeVirtualRecords(
       patch.virtualRecords === undefined ? current.virtualRecords : patch.virtualRecords,
     ),
+  }
+  const policeIcp = stringValue(merged.policeIcp).trim()
+  const next: FooterSettings = {
+    ...merged,
+    policeIcp,
+    policeUrl: buildPoliceBeianUrl(policeIcp),
   }
   saveSetting(db, 'footer', next)
   return next

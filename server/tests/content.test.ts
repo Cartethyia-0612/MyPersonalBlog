@@ -271,6 +271,7 @@ describe('settings and about APIs', () => {
         footer: {
           icp: '苏ICP备00000000号',
           policeIcp: '苏公网安备00000000号',
+          policeUrl: 'https://manual.example.com/ignored',
           virtualRecords: [
             { text: '萌备20260001号', url: 'https://moe.example.com/record/20260001' },
             { text: '自定义地址', url: '' },
@@ -285,6 +286,9 @@ describe('settings and about APIs', () => {
     expect(updated.body.site.siteUrl).toBe('https://blog.example.com')
     expect(updated.body.music.apiBase).toBe('https://meting.example.com/api')
     expect(updated.body.footer.icp).toContain('苏ICP')
+    expect(updated.body.footer.policeUrl).toBe(
+      `https://beian.mps.gov.cn/#/query/webSearch?code=${encodeURIComponent('苏公网安备00000000号')}`,
+    )
 
     const publicSite = await request(testContext.app).get('/api/site')
     expect(publicSite.body.site.name).toBe('饿师傅的新札记')
