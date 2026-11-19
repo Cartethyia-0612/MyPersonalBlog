@@ -60,7 +60,10 @@ const CACHE_TTL_MS = 10 * 60 * 1000
 const FETCH_TIMEOUT_MS = 12_000
 const MAX_RESPONSE_BYTES = 5 * 1024 * 1024
 const MAX_TRACKS = 500
+const MAX_CACHE_ENTRIES = 100
 const cache = new Map<string, CacheEntry>()
+const inFlight = new Map<string, Promise<PlaylistTracksResult>>()
+let cacheEpoch = 0
 
 export function toMusicPlaylist(row: PlaylistRow): MusicPlaylist {
   return {
@@ -152,12 +155,34 @@ export function deletePlaylist(db: Db, id: number): void {
 }
 
 export function clearPlaylistCache(id?: number): void {
+  cacheEpoch += 1
   if (id === undefined) {
     cache.clear()
+    inFlight.clear()
     return
   }
   for (const key of cache.keys()) {
     if (key.startsWith(`${id}:`)) cache.delete(key)
+  }
+  for (const key of inFlight.keys()) {
+    if (key.startsWith(`${id}:`)) inFlight.delete(key)
+  }
+}
+
+function cacheResult(key: string, result: PlaylistTracksResult, epoch: number): void {
+  if (epoch !== cacheEpoch) return
+
+  cache.set(key, { expiresAt: Date.now() + CACHE_TTL_MS, result })
+  if (cache.size <= MAX_CACHE_ENTRIES) return
+
+  const now = Date.now()
+  for (const [entryKey, entry] of cache) {
+    if (entry.expiresAt <= now) cache.delete(entryKey)
+  }
+  while (cache.size > MAX_CACHE_ENTRIES) {
+    const oldest = cache.keys().next().value
+    if (typeof oldest !== 'string') break
+    cache.delete(oldest)
   }
 }
 
@@ -170,6 +195,9 @@ function buildMetingUrl(apiBase: string, playlist: MusicPlaylist): string {
   }
   if (!['http:', 'https:'].includes(url.protocol)) {
     throw new AppError(500, 'METING_NOT_CONFIGURED', 'Meting API 必须使用 http(s) 协议')
+  }
+  if (url.username || url.password) {
+    throw new AppError(500, 'METING_NOT_CONFIGURED', 'Meting API 地址不能包含账号密码')
   }
   url.searchParams.set('server', playlist.server)
   url.searchParams.set('type', 'playlist')
@@ -241,17 +269,109 @@ async function readResponseText(response: Response): Promise<string> {
   if (length && length > MAX_RESPONSE_BYTES) {
     throw new AppError(502, 'METING_TOO_LARGE', '音乐服务返回的数据过大')
   }
-  const text = await response.text()
-  if (text.length > MAX_RESPONSE_BYTES) {
-    throw new AppError(502, 'METING_TOO_LARGE', '音乐服务返回的数据过大')
+
+  if (!response.body) {
+    const bytes = new Uint8Array(await response.arrayBuffer())
+    if (bytes.byteLength > MAX_RESPONSE_BYTES) {
+      throw new AppError(502, 'METING_TOO_LARGE', '音乐服务返回的数据过大')
+    }
+    return new TextDecoder().decode(bytes)
   }
-  return text
+
+  const reader = response.body.getReader()
+  const decoder = new TextDecoder()
+  let totalBytes = 0
+  let text = ''
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+      totalBytes += value.byteLength
+      if (totalBytes > MAX_RESPONSE_BYTES) {
+        await reader.cancel()
+        throw new AppError(502, 'METING_TOO_LARGE', '音乐服务返回的数据过大')
+      }
+      text += decoder.decode(value, { stream: true })
+    }
+    text += decoder.decode()
+    return text
+  } catch (error) {
+    await reader.cancel().catch(() => undefined)
+    throw error
+  }
+}
+
+async function fetchPlaylistTracksUncached(
+  playlist: MusicPlaylist,
+  apiBase: string,
+  cacheKey: string,
+  epoch: number,
+): Promise<PlaylistTracksResult> {
+  const endpoint = buildMetingUrl(apiBase, playlist)
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS)
+
+  try {
+    let response: Response
+    try {
+      response = await fetch(endpoint, {
+        signal: controller.signal,
+        redirect: 'error',
+        headers: {
+          accept: 'application/json',
+          'user-agent': 'EsrsBlog/1.0 (+personal music player)',
+        },
+      })
+    } catch (error) {
+      if (error instanceof Error && error.name === 'AbortError') {
+        throw new AppError(504, 'METING_TIMEOUT', '音乐服务响应超时，请稍后重试')
+      }
+      throw new AppError(502, 'METING_UNAVAILABLE', '音乐服务暂时不可用')
+    }
+
+    if (!response.ok) {
+      throw new AppError(502, 'METING_HTTP_ERROR', `音乐服务返回异常状态（${response.status}）`)
+    }
+
+    let text: string
+    try {
+      text = await readResponseText(response)
+    } catch (error) {
+      if (error instanceof AppError) throw error
+      if (controller.signal.aborted || (error instanceof Error && error.name === 'AbortError')) {
+        throw new AppError(504, 'METING_TIMEOUT', '音乐服务响应超时，请稍后重试')
+      }
+      throw new AppError(502, 'METING_UNAVAILABLE', '音乐服务暂时不可用')
+    }
+
+    let payload: unknown
+    try {
+      payload = JSON.parse(text)
+    } catch {
+      throw new AppError(502, 'METING_INVALID_RESPONSE', '音乐服务返回了无法解析的数据')
+    }
+
+    const tracks = normalizeTracks(payload, playlist.playlistId)
+    if (tracks.length === 0) {
+      throw new AppError(502, 'METING_EMPTY', '音乐服务没有返回可播放曲目')
+    }
+
+    const result: PlaylistTracksResult = {
+      playlist: { id: playlist.id, name: playlist.name },
+      tracks,
+    }
+    cacheResult(cacheKey, result, epoch)
+    return result
+  } finally {
+    clearTimeout(timer)
+  }
 }
 
 /**
  * Fetch a Meting playlist through the server. The public browser never talks to
  * the third-party API directly, which avoids CORS and keeps the configured API
- * endpoint on the server side.
+ * endpoint on the server side. Concurrent cold reads share one upstream request.
  */
 export async function fetchPlaylistTracks(
   db: Db,
@@ -264,49 +384,15 @@ export async function fetchPlaylistTracks(
     return cached.result
   }
 
-  const endpoint = buildMetingUrl(settings.apiBase, playlist)
-  const controller = new AbortController()
-  const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS)
+  const running = inFlight.get(cacheKey)
+  if (running) return running
 
-  let response: Response
-  try {
-    response = await fetch(endpoint, {
-      signal: controller.signal,
-      headers: {
-        accept: 'application/json',
-        'user-agent': 'EsrsBlog/1.0 (+personal music player)',
-      },
-    })
-  } catch (error) {
-    if (error instanceof Error && error.name === 'AbortError') {
-      throw new AppError(504, 'METING_TIMEOUT', '音乐服务响应超时，请稍后重试')
-    }
-    throw new AppError(502, 'METING_UNAVAILABLE', '音乐服务暂时不可用')
-  } finally {
-    clearTimeout(timer)
-  }
-
-  if (!response.ok) {
-    throw new AppError(502, 'METING_HTTP_ERROR', `音乐服务返回异常状态（${response.status}）`)
-  }
-
-  const text = await readResponseText(response)
-  let payload: unknown
-  try {
-    payload = JSON.parse(text)
-  } catch {
-    throw new AppError(502, 'METING_INVALID_RESPONSE', '音乐服务返回了无法解析的数据')
-  }
-
-  const tracks = normalizeTracks(payload, playlist.playlistId)
-  if (tracks.length === 0) {
-    throw new AppError(502, 'METING_EMPTY', '音乐服务没有返回可播放曲目')
-  }
-
-  const result: PlaylistTracksResult = {
-    playlist: { id: playlist.id, name: playlist.name },
-    tracks,
-  }
-  cache.set(cacheKey, { expiresAt: Date.now() + CACHE_TTL_MS, result })
-  return result
+  const epoch = cacheEpoch
+  const promise = fetchPlaylistTracksUncached(playlist, settings.apiBase, cacheKey, epoch).finally(
+    () => {
+      if (inFlight.get(cacheKey) === promise) inFlight.delete(cacheKey)
+    },
+  )
+  inFlight.set(cacheKey, promise)
+  return promise
 }

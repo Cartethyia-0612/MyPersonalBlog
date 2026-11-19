@@ -103,6 +103,12 @@ describe('music API', () => {
     })
     const playlistId = created.body.playlist.id as number
 
+    const settings = await agent
+      .put('/api/admin/settings')
+      .set('X-CSRF-Token', csrf)
+      .send({ music: { apiBase: 'https://meting.example.com/api' } })
+    expect(settings.status).toBe(200)
+
     const first = await request(testContext.app).get(`/api/music/playlists/${playlistId}`)
     expect(first.status).toBe(200)
     expect(first.body.playlist.name).toBe('测试歌单')
@@ -115,6 +121,7 @@ describe('music API', () => {
     expect(first.body.tracks[1].artist).toBe('Artist A / Artist B')
 
     const calledUrl = new URL(fetchMock.mock.calls[0][0] as string)
+    expect(calledUrl.pathname).toBe('/api')
     expect(calledUrl.searchParams.get('server')).toBe('netease')
     expect(calledUrl.searchParams.get('type')).toBe('playlist')
     expect(calledUrl.searchParams.get('id')).toBe('3778678')
@@ -122,6 +129,69 @@ describe('music API', () => {
     const second = await request(testContext.app).get(`/api/music/playlists/${playlistId}`)
     expect(second.status).toBe(200)
     expect(fetchMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('coalesces concurrent cold reads into one upstream request', async () => {
+    const { testContext, agent, csrf } = await setupAdmin()
+    let resolveFetch: ((response: Response) => void) | undefined
+    const fetchMock = vi.fn(
+      () =>
+        new Promise<Response>((resolve) => {
+          resolveFetch = resolve
+        }),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+
+    const created = await agent
+      .post('/api/admin/music/playlists')
+      .set('X-CSRF-Token', csrf)
+      .send({ name: '并发歌单', server: 'netease', playlistId: 'concurrent', visible: true })
+    const id = created.body.playlist.id as number
+
+    const first = request(testContext.app).get(`/api/music/playlists/${id}`)
+    const second = request(testContext.app).get(`/api/music/playlists/${id}`)
+    const pendingResponses = Promise.all([
+      first.then((response) => response),
+      second.then((response) => response),
+    ])
+    await new Promise((resolve) => setTimeout(resolve, 30))
+    if (!resolveFetch) throw new Error('upstream fetch did not start')
+    resolveFetch(
+      new Response(JSON.stringify(metingTracks()), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      }),
+    )
+
+    const [one, two] = await pendingResponses
+    expect(one.status).toBe(200)
+    expect(two.status).toBe(200)
+    expect(one.body.tracks).toHaveLength(2)
+    expect(two.body.tracks).toHaveLength(2)
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('rejects a streamed response over the byte limit without content-length', async () => {
+    const { testContext, agent, csrf } = await setupAdmin()
+    const oversized = new Uint8Array(5 * 1024 * 1024 + 1)
+    const body = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(oversized)
+        controller.close()
+      },
+    })
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(body, { status: 200 })))
+
+    const created = await agent
+      .post('/api/admin/music/playlists')
+      .set('X-CSRF-Token', csrf)
+      .send({ name: '超大歌单', server: 'netease', playlistId: 'oversized', visible: true })
+
+    const response = await request(testContext.app).get(
+      `/api/music/playlists/${created.body.playlist.id}`,
+    )
+    expect(response.status).toBe(502)
+    expect(response.body.error.code).toBe('METING_TOO_LARGE')
   })
 
   it('returns a friendly error when Meting fails', async () => {

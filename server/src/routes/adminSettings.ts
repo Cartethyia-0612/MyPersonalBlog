@@ -14,6 +14,7 @@ import {
   updateMusicSettings,
   updateSiteSettings,
 } from '../services/settings'
+import { clearPlaylistCache } from '../services/music'
 
 const sitePatchSchema = z
   .object({
@@ -46,12 +47,7 @@ const footerPatchSchema = z
   })
   .strict()
 
-const metingApiSchema = z
-  .string()
-  .trim()
-  .max(2048)
-  .refine(isHttpUrl, '请输入有效的 http(s) 地址')
-  .transform((value) => (value.endsWith('/') ? value : `${value}/`))
+const metingApiSchema = z.string().trim().max(2048).refine(isHttpUrl, '请输入有效的 http(s) 地址')
 
 const musicPatchSchema = z
   .object({
@@ -87,7 +83,10 @@ export function createAdminSettingsRouter(db: Db): Router {
     const input = parseBody(settingsPatchSchema, req)
     if (input.site) updateSiteSettings(db, input.site)
     if (input.footer) updateFooterSettings(db, input.footer)
-    if (input.music) updateMusicSettings(db, input.music)
+    if (input.music) {
+      updateMusicSettings(db, input.music)
+      clearPlaylistCache()
+    }
 
     res.json({
       site: getSiteSettings(db),
