@@ -121,12 +121,12 @@ onBeforeUnmount(() => {
   overflow: hidden;
   border-right: 1px solid var(--brand-strong);
   white-space: nowrap;
-  animation: caret 600ms step-end infinite;
+  animation: caret 1000ms step-end infinite;
 }
 
 .loading-screen__typing.is-done {
   border-right-color: var(--brand-strong);
-  animation: caret 600ms step-end infinite;
+  animation: caret 1000ms step-end infinite;
 }
 
 .loading-screen__track {
