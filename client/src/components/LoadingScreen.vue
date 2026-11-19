@@ -125,8 +125,8 @@ onBeforeUnmount(() => {
 }
 
 .loading-screen__typing.is-done {
-  border-right-color: transparent;
-  animation: none;
+  border-right-color: var(--brand-strong);
+  animation: caret 600ms step-end infinite;
 }
 
 .loading-screen__track {
@@ -179,6 +179,7 @@ onBeforeUnmount(() => {
 
 @media (prefers-reduced-motion: reduce) {
   .loading-screen__typing,
+  .loading-screen__typing.is-done,
   .loading-screen__fill,
   .loading-screen__grid {
     animation: none;

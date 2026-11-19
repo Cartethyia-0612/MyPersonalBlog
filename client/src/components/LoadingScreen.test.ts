@@ -29,7 +29,7 @@ describe('LoadingScreen', () => {
     vi.restoreAllMocks()
   })
 
-  it('types once, keeps the text, and stops the caret', async () => {
+  it('types once, keeps the text, and leaves the caret blinking', async () => {
     const wrapper = mount(LoadingScreen)
     const line = wrapper.find('.loading-screen__typing')
 
