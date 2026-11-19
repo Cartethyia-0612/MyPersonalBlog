@@ -23,11 +23,28 @@ function readPort(value: string | undefined): number {
   return port
 }
 
-function normalizeOrigin(value: string): string {
-  return value.trim().replace(/\/+$/, '')
+function parseOrigin(value: string, name: string): string {
+  let url: URL
+  try {
+    url = new URL(value.trim())
+  } catch {
+    throw new Error(`${name} must be an absolute http(s) origin`)
+  }
+  if (url.protocol !== 'http:' && url.protocol !== 'https:') {
+    throw new Error(`${name} must use http or https`)
+  }
+  if (url.username || url.password || url.pathname !== '/' || url.search || url.hash) {
+    throw new Error(`${name} must be an origin only, without credentials, path, query or hash`)
+  }
+  return url.origin
 }
 
-const siteUrl = normalizeOrigin(process.env.SITE_URL || 'http://localhost:5173')
+const rawSiteUrl = process.env.SITE_URL?.trim() || ''
+if (isProduction && !rawSiteUrl) {
+  throw new Error('SITE_URL must be set explicitly in production')
+}
+
+const siteUrl = parseOrigin(rawSiteUrl || 'http://localhost:5173', 'SITE_URL')
 const port = readPort(process.env.PORT)
 const host = process.env.HOST?.trim() || '127.0.0.1'
 const rawSecret = process.env.APP_SECRET?.trim() || ''
@@ -65,7 +82,7 @@ const allowedOrigins = new Set(
       .split(',')
       .map((item) => item.trim())
       .filter(Boolean)
-      .map(normalizeOrigin),
+      .map((item) => parseOrigin(item, 'ALLOWED_ORIGINS')),
   ].filter(Boolean),
 )
 

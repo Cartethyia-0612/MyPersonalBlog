@@ -17,6 +17,11 @@ interface ArticleRow {
   updated_at: string
 }
 
+type ArticleSummaryRow = Omit<ArticleRow, 'content_md'>
+
+const ARTICLE_SUMMARY_COLUMNS = `id, slug, title, summary, cover_url, tags_json,
+  status, published_at, created_at, updated_at`
+
 export interface ArticleSummary {
   id: number
   slug: string
@@ -67,7 +72,7 @@ function parseTags(raw: string): string[] {
   }
 }
 
-function toSummary(row: ArticleRow): ArticleSummary {
+function toSummary(row: ArticleSummaryRow): ArticleSummary {
   return {
     id: row.id,
     slug: row.slug,
@@ -112,6 +117,7 @@ export function generateSlug(title: string): string {
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '')
     .slice(0, 80)
+    .replace(/-+$/g, '')
 
   if (transliterated) return transliterated
   return `post-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`
@@ -271,12 +277,12 @@ export function listPublishedArticles(
 
   const rows = db
     .prepare(
-      `SELECT * FROM articles
+      `SELECT ${ARTICLE_SUMMARY_COLUMNS} FROM articles
        WHERE ${whereSql}
        ORDER BY published_at DESC, id DESC
        LIMIT ? OFFSET ?`,
     )
-    .all(...params, pageSize, (page - 1) * pageSize) as ArticleRow[]
+    .all(...params, pageSize, (page - 1) * pageSize) as ArticleSummaryRow[]
 
   return {
     items: rows.map(toSummary),
@@ -312,11 +318,11 @@ export function listAllArticles(
 
   const rows = db
     .prepare(
-      `SELECT * FROM articles ${whereSql}
+      `SELECT ${ARTICLE_SUMMARY_COLUMNS} FROM articles ${whereSql}
        ORDER BY updated_at DESC, id DESC
        LIMIT ? OFFSET ?`,
     )
-    .all(...params, pageSize, (page - 1) * pageSize) as ArticleRow[]
+    .all(...params, pageSize, (page - 1) * pageSize) as ArticleSummaryRow[]
 
   return {
     items: rows.map(toSummary),

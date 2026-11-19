@@ -11,24 +11,66 @@ async function main(): Promise<void> {
   }
 
   const stamp = new Date().toISOString().replace(/[:.]/g, '-')
-  const root = path.join(config.projectRoot, 'backups', stamp)
-  const dbTarget = path.join(root, 'blog.db')
-  const uploadsTarget = path.join(root, 'uploads')
-  fs.mkdirSync(root, { recursive: true })
+  const backupsRoot = path.join(config.projectRoot, 'backups')
+  fs.mkdirSync(backupsRoot, { recursive: true })
 
-  const db = new Database(config.dbPath)
+  let target = path.join(backupsRoot, stamp)
+  let suffix = 1
+  while (fs.existsSync(target)) {
+    target = path.join(backupsRoot, `${stamp}-${suffix}`)
+    suffix += 1
+  }
+
+  const staging = path.join(backupsRoot, `.${stamp}.staging`)
+  const dbTarget = path.join(staging, 'blog.db')
+  const uploadsTarget = path.join(staging, 'uploads')
+
+  fs.mkdirSync(staging, { recursive: true, mode: 0o700 })
+
   try {
-    await db.backup(dbTarget)
-  } finally {
-    db.close()
+    const db = new Database(config.dbPath)
+    try {
+      await db.backup(dbTarget)
+    } finally {
+      db.close()
+    }
+    fs.chmodSync(dbTarget, 0o600)
+
+    const check = new Database(dbTarget, { readonly: true })
+    try {
+      const result = check.pragma('integrity_check', { simple: true }) as unknown
+      if (result !== 'ok') {
+        throw new Error(`备份完整性检查失败：${String(result)}`)
+      }
+    } finally {
+      check.close()
+    }
+
+    // Opening the copied WAL database for the integrity check can leave empty
+    // sidecar files behind; a backup should contain only the database.
+    for (const suffix of ['-shm', '-wal']) {
+      fs.rmSync(`${dbTarget}${suffix}`, { force: true })
+    }
+
+    if (fs.existsSync(config.uploadDir)) {
+      fs.cpSync(config.uploadDir, uploadsTarget, { recursive: true })
+    }
+
+    fs.writeFileSync(
+      path.join(staging, '.complete'),
+      JSON.stringify({ createdAt: new Date().toISOString(), database: 'blog.db' }, null, 2),
+      { mode: 0o600 },
+    )
+    fs.renameSync(staging, target)
+  } catch (error) {
+    fs.rmSync(staging, { recursive: true, force: true })
+    throw error
   }
 
-  if (fs.existsSync(config.uploadDir)) {
-    fs.cpSync(config.uploadDir, uploadsTarget, { recursive: true })
+  console.log(`[backup] 数据库已备份: ${path.join(target, 'blog.db')}`)
+  if (fs.existsSync(path.join(target, 'uploads'))) {
+    console.log(`[backup] 上传目录已备份: ${path.join(target, 'uploads')}`)
   }
-
-  console.log(`[backup] 数据库已备份: ${dbTarget}`)
-  if (fs.existsSync(uploadsTarget)) console.log(`[backup] 上传目录已备份: ${uploadsTarget}`)
   console.log(
     '[backup] 重要：备份目录不包含 .env / APP_SECRET；请另行加密备份 APP_SECRET，否则恢复后无法解密 TOTP。',
   )

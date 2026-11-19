@@ -11,7 +11,7 @@ const BCRYPT_ROUNDS = 12
 const DUMMY_HASH = '$2b$12$qwFk1haIHuvtZUl9VfkNO.aB3Gx19HH8If2Q/BRwLCKtRyV7JKx2K'
 
 export const PASSWORD_MIN_LENGTH = 10
-export const PASSWORD_MAX_LENGTH = 72
+export const PASSWORD_MAX_BYTES = 72
 export const USERNAME_PATTERN = /^[a-zA-Z0-9_-]{3,32}$/
 
 export function assertValidUsername(username: string): string {
@@ -26,8 +26,12 @@ export function assertValidPassword(password: string): void {
   if (password.length < PASSWORD_MIN_LENGTH) {
     throw new AppError(400, 'WEAK_PASSWORD', `密码至少需要 ${PASSWORD_MIN_LENGTH} 位`)
   }
-  if (password.length > PASSWORD_MAX_LENGTH) {
-    throw new AppError(400, 'WEAK_PASSWORD', `密码不能超过 ${PASSWORD_MAX_LENGTH} 位`)
+  if (Buffer.byteLength(password, 'utf8') > PASSWORD_MAX_BYTES) {
+    throw new AppError(
+      400,
+      'WEAK_PASSWORD',
+      `密码的 UTF-8 编码不能超过 ${PASSWORD_MAX_BYTES} 字节（约 24 个汉字）`,
+    )
   }
 }
 

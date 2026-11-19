@@ -97,6 +97,10 @@ function changePassword(): void {
     passwordError.value = '新密码至少需要 10 位'
     return
   }
+  if (new TextEncoder().encode(passwordForm.newPassword).byteLength > 72) {
+    passwordError.value = '新密码的 UTF-8 编码不能超过 72 字节（约 24 个汉字）'
+    return
+  }
   if (passwordForm.newPassword !== passwordForm.confirmPassword) {
     passwordError.value = '两次输入的新密码不一致'
     return
@@ -279,6 +283,7 @@ useSeo(() => ({
                 />
               </label>
             </div>
+            <p class="hint">密码至少 10 位，UTF-8 编码不超过 72 字节（约 24 个汉字）。</p>
             <p v-if="passwordError" class="admin-error" role="alert">{{ passwordError }}</p>
             <button type="submit" class="btn btn--primary" :disabled="actionLoading">
               {{ actionLoading ? '更新中…' : '更新密码' }}
